@@ -35,6 +35,22 @@
     </div>
   </header>
 
+  <!-- Auto-Restore Banner -->
+  <div id="restoreBanner" class="hidden bg-indigo-900 text-white px-8 py-3 flex justify-between items-center shadow-inner">
+    <div class="flex items-center gap-3 text-sm font-medium">
+      <i class="fa-solid fa-clock-rotate-left text-amber-400 text-lg"></i>
+      <span>Saved session detected! You have unsaved progress from a previous run.</span>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="resumeSavedSession()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition">
+        Resume Session
+      </button>
+      <button onclick="clearSavedSession()" class="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg transition">
+        Discard & Start New
+      </button>
+    </div>
+  </div>
+
   <main class="max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
 
     <!-- Top KPI Cards Section -->
@@ -60,8 +76,11 @@
     <hr class="border-slate-200"/>
 
     <!-- Queue Counter Text -->
-    <div id="counterHeader" class="hidden text-base font-medium text-slate-600">
-      <span id="currentIdx">0</span> / <span id="totalIdx">0</span>
+    <div id="counterHeader" class="hidden justify-between items-center text-base font-medium text-slate-600">
+      <div><span id="currentIdx">0</span> / <span id="totalIdx">0</span></div>
+      <span id="autoSaveIndicator" class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+        <i class="fa-solid fa-circle-check"></i> Real-time Auto-Save Active
+      </span>
     </div>
 
     <!-- Main Entity Workspace Card -->
@@ -125,7 +144,7 @@
         <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
           <i class="fa-solid fa-pen-to-square text-blue-500"></i> Analyst Resolution Notes
         </label>
-        <textarea id="analystNotes" rows="2" placeholder="Type resolution comments or action notes here..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
+        <textarea id="analystNotes" oninput="autoSaveRuntimeState()" rows="2" placeholder="Type resolution comments or action notes here..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
       </div>
 
       <!-- Bottom Navigation & Action Bar -->
@@ -158,6 +177,15 @@
     let queueData = [];
     let currentIndex = 0;
     let totalVerifiedUrls = 0;
+
+    // Check for saved state on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedState = localStorage.getItem('url_discovery_active_session');
+      if (savedState) {
+        document.getElementById('restoreBanner').classList.remove('hidden');
+        document.getElementById('restoreBanner').classList.add('flex');
+      }
+    });
 
     document.getElementById('excelFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -213,19 +241,21 @@
       });
 
       currentIndex = 0;
+      totalVerifiedUrls = 0;
+      document.getElementById('restoreBanner').classList.add('hidden');
       document.getElementById('counterHeader').classList.remove('hidden');
+      document.getElementById('counterHeader').classList.add('flex');
       document.getElementById('entityCard').classList.remove('hidden');
       document.getElementById('btnDownload').classList.remove('hidden');
 
+      autoSaveRuntimeState();
       updateKPIs();
       renderEntity();
     }
 
-    // Convert raw text URLs into clickable HTML anchors
     function linkifyText(text) {
       const urlRegex = /(https?:\/\/[^\s"',\]]+)/g;
       return text.replace(urlRegex, function(url) {
-        // Clean trailing escape slash if present
         const cleanUrl = url.replace(/\\+$/, '');
         return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-semibold underline hover:text-blue-800 break-all">${cleanUrl}</a>`;
       });
@@ -236,25 +266,20 @@
 
       const entity = queueData[currentIndex];
 
-      // Counter Text
       document.getElementById('currentIdx').textContent = currentIndex;
       document.getElementById('totalIdx').textContent = queueData.length;
 
-      // Header & Link
       document.getElementById('entityTitle').textContent = entity.name;
       document.getElementById('entityIdLink').textContent = entity.id;
 
-      // Metadata Cards
       document.getElementById('metaClient').textContent = entity.client;
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
       document.getElementById('metaIndustry').textContent = entity.industry;
       document.getElementById('metaEntityType').textContent = entity.entityType;
 
-      // Notes Input
       document.getElementById('analystNotes').value = entity.notes || '';
 
-      // Errors Table
       const tbody = document.getElementById('errorTableBody');
       tbody.innerHTML = '';
 
@@ -278,15 +303,50 @@
         });
       }
 
-      // Nav States
       document.getElementById('btnPrev').disabled = (currentIndex === 0);
       document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
     }
 
-    function saveCurrentNotes() {
+    // Real-Time Auto-Save Function
+    function autoSaveRuntimeState() {
+      if (queueData.length === 0) return;
+
       if (queueData[currentIndex]) {
         queueData[currentIndex].notes = document.getElementById('analystNotes').value;
       }
+
+      const sessionPayload = {
+        queueData: queueData,
+        currentIndex: currentIndex,
+        totalVerifiedUrls: totalVerifiedUrls,
+        savedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem('url_discovery_active_session', JSON.stringify(sessionPayload));
+    }
+
+    function resumeSavedSession() {
+      const savedState = localStorage.getItem('url_discovery_active_session');
+      if (!savedState) return;
+
+      const payload = JSON.parse(savedState);
+      queueData = payload.queueData || [];
+      currentIndex = payload.currentIndex || 0;
+      totalVerifiedUrls = payload.totalVerifiedUrls || 0;
+
+      document.getElementById('restoreBanner').classList.add('hidden');
+      document.getElementById('counterHeader').classList.remove('hidden');
+      document.getElementById('counterHeader').classList.add('flex');
+      document.getElementById('entityCard').classList.remove('hidden');
+      document.getElementById('btnDownload').classList.remove('hidden');
+
+      updateKPIs();
+      renderEntity();
+    }
+
+    function clearSavedSession() {
+      localStorage.removeItem('url_discovery_active_session');
+      document.getElementById('restoreBanner').classList.add('hidden');
     }
 
     function retrySource(source, idx) {
@@ -294,10 +354,11 @@
     }
 
     function markStatus(status) {
-      saveCurrentNotes();
+      queueData[currentIndex].notes = document.getElementById('analystNotes').value;
       queueData[currentIndex].status = status;
       if (status === 'Completed') totalVerifiedUrls++;
 
+      autoSaveRuntimeState();
       updateKPIs();
 
       if (currentIndex < queueData.length - 1) {
@@ -310,7 +371,11 @@
     }
 
     function navigateQueue(step) {
-      saveCurrentNotes();
+      if (queueData[currentIndex]) {
+        queueData[currentIndex].notes = document.getElementById('analystNotes').value;
+      }
+      autoSaveRuntimeState();
+
       const target = currentIndex + step;
       if (target >= 0 && target < queueData.length) {
         currentIndex = target;
@@ -326,7 +391,7 @@
     }
 
     function exportData() {
-      saveCurrentNotes();
+      autoSaveRuntimeState();
       const exportRows = queueData.map(e => ({
         'Entity ID': e.id,
         'Entity Name': e.name,

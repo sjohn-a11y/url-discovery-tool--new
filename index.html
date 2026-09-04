@@ -86,10 +86,13 @@
     <!-- Main Entity Workspace Card -->
     <div id="entityCard" class="hidden card-box p-8 shadow-sm space-y-6">
       
-      <!-- Entity Name & Blue Entity ID -->
+      <!-- Entity Name & Blue Entity ID (Linked to EV Tool) -->
       <div>
         <h2 id="entityTitle" class="text-2xl font-bold text-slate-900">Entity Name</h2>
-        <a id="entityIdLink" href="#" target="_blank" class="text-base font-semibold text-blue-600 hover:underline mt-1 inline-block">0000000</a>
+        <a id="entityIdLink" href="#" target="_blank" rel="noopener noreferrer" class="text-base font-semibold text-blue-600 hover:underline mt-1 inline-flex items-center gap-1.5" title="Open in EV Tool">
+          <span id="entityIdText">0000000</span>
+          <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+        </a>
       </div>
 
       <!-- Metadata Box Grid -->
@@ -113,6 +116,10 @@
         <div class="meta-box">
           <p class="text-xs text-slate-400 font-medium">Entity Type</p>
           <p id="metaEntityType" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
+        </div>
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">NPI Number</p>
+          <p id="metaNpi" class="text-sm font-bold text-slate-800 mt-0.5">N/A</p>
         </div>
       </div>
 
@@ -178,7 +185,6 @@
     let currentIndex = 0;
     let totalVerifiedUrls = 0;
 
-    // Check for saved state on page load
     window.addEventListener('DOMContentLoaded', () => {
       const savedState = localStorage.getItem('url_discovery_active_session');
       if (savedState) {
@@ -217,6 +223,9 @@
         const products = row['Client Products'] || 'DataManager, Listings, Reputation';
         const industry = row['Industry ID'] || 'healthcare, healthcare';
         const entityType = row['Entity Type'] || 'Person, Person';
+        
+        // Extract NPI if present in Payload or direct column
+        const npi = payloadObj.npi || payloadObj.NPI || row['NPI'] || row['npi'] || 'N/A';
 
         const errors = [];
         SOURCES.forEach(src => {
@@ -234,6 +243,7 @@
           products: products,
           industry: industry,
           entityType: entityType,
+          npi: npi,
           errors: errors,
           status: 'Pending',
           notes: ''
@@ -266,17 +276,23 @@
 
       const entity = queueData[currentIndex];
 
-      document.getElementById('currentIdx').textContent = currentIndex;
+      document.getElementById('currentIdx').textContent = currentIndex + 1;
       document.getElementById('totalIdx').textContent = queueData.length;
 
       document.getElementById('entityTitle').textContent = entity.name;
-      document.getElementById('entityIdLink').textContent = entity.id;
+      
+      // Update EV Tool Link
+      const evUrl = `https://crawler-admin.consumerism.pressganey.com/#/verify-sources/${entity.id}`;
+      document.getElementById('entityIdText').textContent = entity.id;
+      document.getElementById('entityIdLink').href = evUrl;
 
+      // Metadata Cards
       document.getElementById('metaClient').textContent = entity.client;
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
       document.getElementById('metaIndustry').textContent = entity.industry;
       document.getElementById('metaEntityType').textContent = entity.entityType;
+      document.getElementById('metaNpi').textContent = entity.npi;
 
       document.getElementById('analystNotes').value = entity.notes || '';
 
@@ -307,7 +323,6 @@
       document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
     }
 
-    // Real-Time Auto-Save Function
     function autoSaveRuntimeState() {
       if (queueData.length === 0) return;
 
@@ -395,6 +410,7 @@
       const exportRows = queueData.map(e => ({
         'Entity ID': e.id,
         'Entity Name': e.name,
+        'NPI': e.npi,
         'Client': e.client,
         'Sync Partner': e.syncType,
         'Status': e.status,

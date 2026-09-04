@@ -3,125 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>URL Discovery Queue Processor</title>
+  <title>URL Discovery Analyzing Tool</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    .badge-404 { background-color: #fee2e2; color: #991b1b; }
-    .badge-500 { background-color: #fef3c7; color: #92400e; }
-    .badge-409 { background-color: #e0e7ff; color: #3730a3; }
-    .badge-412 { background-color: #f3e8ff; color: #6b21a8; }
+    body { background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .card-box { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .meta-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px 16px; }
   </style>
 </head>
-<body class="bg-slate-100 font-sans text-slate-800 min-h-screen flex flex-col">
+<body class="text-slate-800 min-h-screen flex flex-col">
 
-  <header class="bg-indigo-700 text-white shadow-md">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-      <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-list-check text-2xl"></i>
-        <h1 class="text-xl font-bold tracking-wide">URL Discovery Queue Processor</h1>
-      </div>
-      <div id="progressCounter" class="hidden text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-500">
-        Item <span id="currentIndexText">0</span> of <span id="totalCountText">0</span>
-      </div>
+  <!-- Header / Nav -->
+  <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-xl"></i>
+      <h1 class="text-lg font-bold text-slate-800 tracking-tight">URL Discovery Analyzing Tool</h1>
+    </div>
+    <div id="fileUploadContainer" class="flex items-center gap-3">
+      <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden"/>
+      <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+        <i class="fa-solid fa-file-excel"></i> Upload Excel File
+      </button>
+      <button id="btnDownload" onclick="exportData()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+        <i class="fa-solid fa-download"></i> Export (.xlsx)
+      </button>
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto px-6 py-8 w-full flex-grow flex flex-col justify-center">
+  <main class="max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
 
-    <div id="uploadCard" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-      <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-2xl">
-        <i class="fa-solid fa-file-excel"></i>
+    <!-- Top KPI Cards Section -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="card-box p-5 text-center shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Total Entities</p>
+        <p id="kpiTotalEntities" class="text-2xl font-bold text-blue-600 mt-1">0</p>
       </div>
-      <div>
-        <h2 class="text-lg font-bold text-slate-800">Upload Source File to Start Queue</h2>
-        <p class="text-sm text-slate-500 mt-1">Select your `.xlsx` report file to process entities sequentially.</p>
+      <div class="card-box p-5 text-center shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Completed</p>
+        <p id="kpiCompleted" class="text-2xl font-bold text-blue-600 mt-1">0</p>
       </div>
-      <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden"/>
-      <button onclick="document.getElementById('excelFile').click()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition shadow-md inline-flex items-center gap-2">
-        <i class="fa-solid fa-upload"></i> Browse Excel File
-      </button>
+      <div class="card-box p-5 text-center shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Pending</p>
+        <p id="kpiPending" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+      </div>
+      <div class="card-box p-5 text-center shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Total URLs Verified</p>
+        <p id="kpiUrlsVerified" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+      </div>
     </div>
 
-    <div id="workbenchCard" class="hidden space-y-6">
+    <hr class="border-slate-200"/>
+
+    <!-- Queue Counter Text -->
+    <div id="counterHeader" class="hidden text-base font-medium text-slate-600">
+      <span id="currentIdx">0</span> / <span id="totalIdx">0</span>
+    </div>
+
+    <!-- Main Entity Workspace Card -->
+    <div id="entityCard" class="hidden card-box p-8 shadow-sm space-y-6">
       
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-        <div class="w-full mr-6">
-          <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1">
-            <span>Overall Queue Progress</span>
-            <span id="progressPct">0%</span>
-          </div>
-          <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-            <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-          </div>
+      <!-- Entity Name & Blue Entity ID -->
+      <div>
+        <h2 id="entityTitle" class="text-2xl font-bold text-slate-900">Entity Name</h2>
+        <a id="entityIdLink" href="#" class="text-base font-semibold text-blue-600 hover:underline mt-1 inline-block">0000000</a>
+      </div>
+
+      <!-- Metadata Box Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">Client</p>
+          <p id="metaClient" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btnSave" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium text-xs transition flex items-center gap-1.5" title="Save Progress locally">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-          <button id="btnDownload" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs transition flex items-center gap-1.5" title="Export progress to Excel">
-            <i class="fa-solid fa-download"></i> Export
-          </button>
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">Sync Type</p>
+          <p id="metaSync" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
+        </div>
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">Products</p>
+          <p id="metaProducts" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
+        </div>
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">Industry</p>
+          <p id="metaIndustry" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
+        </div>
+        <div class="meta-box">
+          <p class="text-xs text-slate-400 font-medium">Entity Type</p>
+          <p id="metaEntityType" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-        
-        <div class="bg-slate-800 text-white p-6 flex justify-between items-start">
-          <div>
-            <span id="entityTypeBadge" class="text-[10px] font-bold uppercase tracking-wider bg-indigo-500 px-2.5 py-0.5 rounded-full">Entity Payload</span>
-            <h2 id="entityName" class="text-2xl font-bold mt-2">Loading Entity Name...</h2>
-            <p id="entityMeta" class="text-xs text-slate-400 mt-1">ID: - | ZIP: - | State: -</p>
-          </div>
-          <span id="entityStatusBadge" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-500 text-white">Pending</span>
-        </div>
+      <!-- Error Details Header -->
+      <div class="pt-2">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-blue-500"></i> Error Details
+        </h3>
+      </div>
 
-        <div class="p-6 space-y-6">
-          
-          <div>
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Operational Action</h3>
-            <div id="actionBanner" class="p-4 rounded-xl border flex items-start gap-3 bg-indigo-50 border-indigo-200 text-indigo-900">
-              <i class="fa-solid fa-circle-info text-xl mt-0.5"></i>
-              <div>
-                <p id="actionTitle" class="font-bold text-sm">Action Title</p>
-                <p id="actionDesc" class="text-xs mt-0.5 text-indigo-700">Detailed steps to take for this error.</p>
-              </div>
-            </div>
-          </div>
+      <!-- Source Error Details Table -->
+      <div class="overflow-x-auto border border-slate-200 rounded-lg">
+        <table class="w-full text-left text-sm text-slate-700">
+          <thead class="bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-200">
+            <tr>
+              <th class="py-3 px-4 w-1/5">Source</th>
+              <th class="py-3 px-4 w-3/5">Value</th>
+              <th class="py-3 px-4 w-1/5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="errorTableBody" class="divide-y divide-slate-200 bg-white">
+            <!-- Dynamic Error Rows -->
+          </tbody>
+        </table>
+      </div>
 
-          <div>
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source Errors Detected</h3>
-            <div id="sourceErrorsList" class="space-y-2 max-h-56 overflow-y-auto pr-2">
-              </div>
-          </div>
+      <!-- Bottom Navigation & Action Bar -->
+      <div class="pt-4 flex justify-between items-center border-t border-slate-100">
+        <button id="btnPrev" onclick="navigateQueue(-1)" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          <i class="fa-solid fa-chevron-left mr-1"></i> Previous
+        </button>
 
-          <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resolution / Analyst Notes</label>
-            <textarea id="analystNotes" rows="2" placeholder="Add optional notes about the action taken..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-          </div>
-
-        </div>
-
-        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
-          <button id="btnPrev" onclick="navigateQueue(-1)" class="px-4 py-2.5 border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition flex items-center gap-2">
-            <i class="fa-solid fa-arrow-left"></i> Previous
+        <div class="flex gap-3">
+          <button onclick="markStatus('Pending')" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg text-sm transition shadow-sm">
+            Mark Pending & Next
           </button>
-
-          <div class="flex items-center gap-3">
-            <button onclick="processCurrentEntity('Pending')" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-sm transition shadow-sm flex items-center gap-2">
-              <i class="fa-solid fa-clock"></i> Mark Pending & Next
-            </button>
-            <button onclick="processCurrentEntity('Completed')" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition shadow-md flex items-center gap-2">
-              <i class="fa-solid fa-check-circle"></i> Mark Completed & Next
-            </button>
-          </div>
-
-          <button id="btnNext" onclick="navigateQueue(1)" class="px-4 py-2.5 border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition flex items-center gap-2">
-            Next <i class="fa-solid fa-arrow-right"></i>
+          <button onclick="markStatus('Completed')" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-sm">
+            Mark Completed & Next
           </button>
         </div>
 
+        <button id="btnNext" onclick="navigateQueue(1)" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
+          Next <i class="fa-solid fa-chevron-right ml-1"></i>
+        </button>
       </div>
 
     </div>
@@ -133,8 +149,8 @@
 
     let queueData = [];
     let currentIndex = 0;
+    let totalVerifiedUrls = 0;
 
-    // Excel Upload Listener
     document.getElementById('excelFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -146,13 +162,12 @@
         const sheetName = workbook.SheetNames[0];
         const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        initializeQueue(rawJson);
+        parseWorkbook(rawJson);
       };
       reader.readAsArrayBuffer(file);
     });
 
-    // Initialize Queue Data
-    function initializeQueue(rows) {
+    function parseWorkbook(rows) {
       queueData = rows.map((row, idx) => {
         const entityId = row['Entity ID'] || `Row-${idx+1}`;
         let payloadObj = {};
@@ -161,177 +176,140 @@
         } catch(e) {}
 
         const entityName = payloadObj.name || row['Client Name'] || 'N/A';
-        const zip = payloadObj.zip || 'Missing';
-        const state = payloadObj.state || 'N/A';
+        const client = row['Client Name'] || 'N/A';
+        const syncType = row['Sync Partner'] || 'Listings, noSync';
+        const products = row['Client Products'] || 'DataManager, Listings, Reputation';
+        const industry = row['Industry ID'] || 'healthcare, healthcare';
+        const entityType = row['Entity Type'] || 'Person, Person';
 
         // Extract Source Errors
-        const sourceErrors = [];
+        const errors = [];
         SOURCES.forEach(src => {
           const val = row[src];
           if (val) {
-            const parsed = parseSourceError(src, val);
-            if (parsed) sourceErrors.push(parsed);
+            errors.push({ source: src, value: String(val) });
           }
         });
-
-        // Recommended Action Mapping
-        const action = deriveRecommendedAction(sourceErrors, zip);
 
         return {
           id: entityId,
           name: entityName,
-          zip: zip,
-          state: state,
-          sourceErrors: sourceErrors,
-          action: action,
-          status: 'Pending',
-          notes: ''
+          client: client,
+          syncType: syncType,
+          products: products,
+          industry: industry,
+          entityType: entityType,
+          errors: errors,
+          status: 'Pending'
         };
       });
 
       currentIndex = 0;
-      document.getElementById('uploadCard').classList.add('hidden');
-      document.getElementById('workbenchCard').classList.remove('hidden');
-      document.getElementById('progressCounter').classList.remove('hidden');
+      document.getElementById('counterHeader').classList.remove('hidden');
+      document.getElementById('entityCard').classList.remove('hidden');
+      document.getElementById('btnDownload').classList.remove('hidden');
 
-      renderCurrentEntity();
+      updateKPIs();
+      renderEntity();
     }
 
-    // Render Active Entity Card
-    function renderCurrentEntity() {
+    function renderEntity() {
       if (queueData.length === 0) return;
 
-      const current = queueData[currentIndex];
+      const entity = queueData[currentIndex];
 
-      // Update Top Counters & Progress
-      document.getElementById('currentIndexText').textContent = currentIndex + 1;
-      document.getElementById('totalCountText').textContent = queueData.length;
-      
-      const pct = Math.round(((currentIndex) / queueData.length) * 100);
-      document.getElementById('progressPct').textContent = `${pct}%`;
-      document.getElementById('progressBar').style.width = `${pct}%`;
+      // Counter Text
+      document.getElementById('currentIdx').textContent = currentIndex;
+      document.getElementById('totalIdx').textContent = queueData.length;
 
-      // Update Entity Details
-      document.getElementById('entityName').textContent = current.name;
-      document.getElementById('entityMeta').textContent = `Entity ID: ${current.id} | ZIP: ${current.zip} | State: ${current.state}`;
-      document.getElementById('analystNotes').value = current.notes || '';
+      // Header & Link
+      document.getElementById('entityTitle').textContent = entity.name;
+      document.getElementById('entityIdLink').textContent = entity.id;
 
-      // Update Status Badge
-      const statusBadge = document.getElementById('entityStatusBadge');
-      statusBadge.textContent = current.status;
-      if (current.status === 'Completed') {
-        statusBadge.className = "px-3 py-1 text-xs font-bold rounded-full bg-emerald-500 text-white";
+      // Metadata Cards
+      document.getElementById('metaClient').textContent = entity.client;
+      document.getElementById('metaSync').textContent = entity.syncType;
+      document.getElementById('metaProducts').textContent = entity.products;
+      document.getElementById('metaIndustry').textContent = entity.industry;
+      document.getElementById('metaEntityType').textContent = entity.entityType;
+
+      // Errors Table
+      const tbody = document.getElementById('errorTableBody');
+      tbody.innerHTML = '';
+
+      if (entity.errors.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="py-4 px-4 text-center text-slate-400">No source errors recorded.</td></tr>`;
       } else {
-        statusBadge.className = "px-3 py-1 text-xs font-bold rounded-full bg-amber-500 text-white";
+        entity.errors.forEach((err, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50";
+          tr.innerHTML = `
+            <td class="py-3.5 px-4 font-semibold text-slate-800">${err.source}</td>
+            <td class="py-3.5 px-4 font-mono text-xs text-slate-600 break-all">${err.value}</td>
+            <td class="py-3.5 px-4 text-right">
+              <button onclick="retrySource('${err.source}', ${idx})" class="text-rose-600 hover:text-rose-800 font-semibold text-sm transition">
+                Retry
+              </button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
       }
 
-      // Action Banner
-      document.getElementById('actionTitle').textContent = current.action.title;
-      document.getElementById('actionDesc').textContent = current.action.desc;
-
-      // Source Errors List
-      const errorsContainer = document.getElementById('sourceErrorsList');
-      if (current.sourceErrors.length === 0) {
-        errorsContainer.innerHTML = `<div class="p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg font-medium">No reported errors found for this entity.</div>`;
-      } else {
-        errorsContainer.innerHTML = current.sourceErrors.map(e => `
-          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs flex justify-between items-start gap-3">
-            <div>
-              <span class="font-bold text-slate-800">${e.source}</span>
-              <p class="text-slate-500 mt-0.5">${e.message}</p>
-            </div>
-            <span class="px-2 py-0.5 rounded font-mono font-bold badge-${e.code}">${e.code}</span>
-          </div>
-        `).join('');
-      }
-
-      // Nav Button States
+      // Nav States
       document.getElementById('btnPrev').disabled = (currentIndex === 0);
       document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
     }
 
-    // Process Action & Advance
-    function processCurrentEntity(newStatus) {
-      if (queueData.length === 0) return;
+    function retrySource(source, idx) {
+      alert(`Retrying crawler fetch for ${source}...`);
+    }
 
-      // Save Notes & Status
-      queueData[currentIndex].status = newStatus;
-      queueData[currentIndex].notes = document.getElementById('analystNotes').value;
+    function markStatus(status) {
+      queueData[currentIndex].status = status;
+      if (status === 'Completed') totalVerifiedUrls++;
 
-      // Auto Advance to Next Entity
+      updateKPIs();
+
       if (currentIndex < queueData.length - 1) {
         currentIndex++;
-        renderCurrentEntity();
+        renderEntity();
       } else {
-        alert("Queue Complete! You have reviewed all entities in this file.");
-        renderCurrentEntity();
+        alert('You have reached the end of the queue!');
+        renderEntity();
       }
     }
 
-    // Navigation Controls
     function navigateQueue(step) {
-      // Save current notes before moving
-      queueData[currentIndex].notes = document.getElementById('analystNotes').value;
-
       const target = currentIndex + step;
       if (target >= 0 && target < queueData.length) {
         currentIndex = target;
-        renderCurrentEntity();
+        renderEntity();
       }
     }
 
-    // Helpers
-    function parseSourceError(source, rawVal) {
-      let code = 500;
-      let msg = String(rawVal);
-      if (msg.startsWith('[') || msg.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(msg);
-          const item = Array.isArray(parsed) ? parsed[0] : parsed;
-          code = item.statusCode || 500;
-          msg = item.message || msg;
-        } catch(e) {}
-      }
-      return { source, code, message: msg };
+    function updateKPIs() {
+      document.getElementById('kpiTotalEntities').textContent = queueData.length;
+      document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
+      document.getElementById('kpiPending').textContent = queueData.filter(e => e.status === 'Pending').length;
+      document.getElementById('kpiUrlsVerified').textContent = totalVerifiedUrls;
     }
 
-    function deriveRecommendedAction(errors, zip) {
-      if (errors.length === 0) return { title: "No Action Needed", desc: "Source URLs are valid and verified." };
-      if (zip === 'Missing' || errors.some(e => e.message.includes("no valid 'Zip'"))) {
-        return { title: "Fix Payload: Add Valid ZIP Code", desc: "Update entity payload in DataManager with valid ZIP code and re-trigger discovery." };
-      }
-      if (errors.some(e => e.code === 409 || e.message.includes("already exists"))) {
-        return { title: "Resolve Place ID Conflict", desc: "Check Backoffice for existing location/PlaceID mapping and merge duplicate entity." };
-      }
-      if (errors.some(e => e.source === 'Yelp' && e.message.includes("temporarily not supported"))) {
-        return { title: "Raise Salesforce Ticket (Yelp)", desc: "Submit manual SF task for India Product Support to configure Yelp harvester." };
-      }
-      return { title: "Manual Verification Required", desc: "Review raw source response and manually update harvester URL." };
-    }
-
-    // Save & Export
-    document.getElementById('btnSave').addEventListener('click', () => {
-      localStorage.setItem('url_discovery_queue', JSON.stringify(queueData));
-      alert('Local state saved successfully!');
-    });
-
-    document.getElementById('btnDownload').addEventListener('click', () => {
-      const exportRows = queueData.map(item => ({
-        'Entity ID': item.id,
-        'Entity Name': item.name,
-        'ZIP': item.zip,
-        'State': item.state,
-        'Status': item.status,
-        'Recommended Action': item.action.title,
-        'Analyst Notes': item.notes,
-        'Total Errors': item.sourceErrors.length
+    function exportData() {
+      const exportRows = queueData.map(e => ({
+        'Entity ID': e.id,
+        'Entity Name': e.name,
+        'Client': e.client,
+        'Sync Partner': e.syncType,
+        'Status': e.status,
+        'Error Count': e.errors.length
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Processed_Queue");
-      XLSX.writeFile(wb, "Processed_URL_Discovery_Queue.xlsx");
-    });
+      XLSX.utils.book_append_sheet(wb, ws, "Processed_Entities");
+      XLSX.writeFile(wb, "URL_Discovery_Status_Report.xlsx");
+    }
   </script>
 </body>
 </html>

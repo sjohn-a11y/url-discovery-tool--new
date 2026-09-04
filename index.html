@@ -224,8 +224,11 @@
         const industry = row['Industry ID'] || 'healthcare, healthcare';
         const entityType = row['Entity Type'] || 'Person, Person';
         
-        // Extract NPI if present in Payload or direct column
-        const npi = payloadObj.npi || payloadObj.NPI || row['NPI'] || row['npi'] || 'N/A';
+        // Read NPI directly from 'Code' column (formatting float/scientific numbers cleanly)
+        let npi = 'N/A';
+        if (row['Code'] !== undefined && row['Code'] !== null && row['Code'] !== '') {
+          npi = String(Math.floor(Number(row['Code'])));
+        }
 
         const errors = [];
         SOURCES.forEach(src => {
@@ -281,12 +284,10 @@
 
       document.getElementById('entityTitle').textContent = entity.name;
       
-      // Update EV Tool Link
       const evUrl = `https://crawler-admin.consumerism.pressganey.com/#/verify-sources/${entity.id}`;
       document.getElementById('entityIdText').textContent = entity.id;
       document.getElementById('entityIdLink').href = evUrl;
 
-      // Metadata Cards
       document.getElementById('metaClient').textContent = entity.client;
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
@@ -410,7 +411,7 @@
       const exportRows = queueData.map(e => ({
         'Entity ID': e.id,
         'Entity Name': e.name,
-        'NPI': e.npi,
+        'NPI Number (Code)': e.npi,
         'Client': e.client,
         'Sync Partner': e.syncType,
         'Status': e.status,

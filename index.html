@@ -3,108 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>URL Discovery & Error Analysis Tool</title>
-  <!-- Tailwind CSS CDN -->
+  <title>URL Discovery Queue Processor</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS CDN for Excel processing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     .badge-404 { background-color: #fee2e2; color: #991b1b; }
     .badge-500 { background-color: #fef3c7; color: #92400e; }
     .badge-409 { background-color: #e0e7ff; color: #3730a3; }
     .badge-412 { background-color: #f3e8ff; color: #6b21a8; }
-    .badge-200 { background-color: #d1fae5; color: #065f46; }
   </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800">
+<body class="bg-slate-100 font-sans text-slate-800 min-h-screen flex flex-col">
 
-  <!-- Header -->
   <header class="bg-indigo-700 text-white shadow-md">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
       <div class="flex items-center space-x-3">
-        <i class="fa-solid fa-compass-drafting text-2xl"></i>
-        <h1 class="text-xl font-bold tracking-wide">URL Discovery Error & Action Analyzer</h1>
+        <i class="fa-solid fa-list-check text-2xl"></i>
+        <h1 class="text-xl font-bold tracking-wide">URL Discovery Queue Processor</h1>
       </div>
-      <span class="text-xs bg-indigo-800 px-3 py-1 rounded-full border border-indigo-500">GitHub Pages Ready</span>
+      <div id="progressCounter" class="hidden text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-500">
+        Item <span id="currentIndexText">0</span> of <span id="totalCountText">0</span>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+  <main class="max-w-4xl mx-auto px-6 py-8 w-full flex-grow flex flex-col justify-center">
 
-    <!-- Upload & Quick Action Bar -->
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="w-full md:w-1/2">
-        <label class="block text-sm font-semibold text-slate-700 mb-2">Upload Source Excel File (.xlsx)</label>
-        <input type="file" id="excelFile" accept=".xlsx, .xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"/>
+    <div id="uploadCard" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+      <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+        <i class="fa-solid fa-file-excel"></i>
       </div>
-      <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-        <button id="btnSave" class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition shadow-sm items-center gap-2">
-          <i class="fa-solid fa-floppy-disk"></i> Save Local State
-        </button>
-        <button id="btnDownload" class="hidden px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition shadow-sm items-center gap-2">
-          <i class="fa-solid fa-download"></i> Export (.XLSX)
-        </button>
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Upload Source File to Start Queue</h2>
+        <p class="text-sm text-slate-500 mt-1">Select your `.xlsx` report file to process entities sequentially.</p>
       </div>
+      <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden"/>
+      <button onclick="document.getElementById('excelFile').click()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition shadow-md inline-flex items-center gap-2">
+        <i class="fa-solid fa-upload"></i> Browse Excel File
+      </button>
     </div>
 
-    <!-- Overview Dashboard Cards -->
-    <div id="statsSection" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-semibold text-slate-500 uppercase">Total Entities</p>
-        <p id="statTotal" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+    <div id="workbenchCard" class="hidden space-y-6">
+      
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+        <div class="w-full mr-6">
+          <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+            <span>Overall Queue Progress</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+            <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnSave" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium text-xs transition flex items-center gap-1.5" title="Save Progress locally">
+            <i class="fa-solid fa-floppy-disk"></i> Save
+          </button>
+          <button id="btnDownload" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs transition flex items-center gap-1.5" title="Export progress to Excel">
+            <i class="fa-solid fa-download"></i> Export
+          </button>
+        </div>
       </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-semibold text-amber-600 uppercase">Pending Action</p>
-        <p id="statPending" class="text-2xl font-bold text-amber-600 mt-1">0</p>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-semibold text-indigo-600 uppercase">In Progress</p>
-        <p id="statInProgress" class="text-2xl font-bold text-indigo-600 mt-1">0</p>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-        <p class="text-xs font-semibold text-emerald-600 uppercase">Completed</p>
-        <p id="statCompleted" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
-      </div>
-    </div>
 
-    <!-- Filters & Search -->
-    <div id="filterSection" class="hidden bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-      <div class="flex flex-wrap gap-3 w-full md:w-auto">
-        <select id="filterStatus" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="ALL">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Completed">Completed</option>
-        </select>
-        <select id="filterSource" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="ALL">All Sources</option>
-        </select>
-      </div>
-      <div class="w-full md:w-72">
-        <input type="text" id="searchInput" placeholder="Search Entity ID, Name, or Error..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
-      </div>
-    </div>
+      <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+        
+        <div class="bg-slate-800 text-white p-6 flex justify-between items-start">
+          <div>
+            <span id="entityTypeBadge" class="text-[10px] font-bold uppercase tracking-wider bg-indigo-500 px-2.5 py-0.5 rounded-full">Entity Payload</span>
+            <h2 id="entityName" class="text-2xl font-bold mt-2">Loading Entity Name...</h2>
+            <p id="entityMeta" class="text-xs text-slate-400 mt-1">ID: - | ZIP: - | State: -</p>
+          </div>
+          <span id="entityStatusBadge" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-500 text-white">Pending</span>
+        </div>
 
-    <!-- Entity Analysis Table -->
-    <div id="tableContainer" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-600">
-          <thead class="bg-slate-100 text-xs font-semibold uppercase text-slate-700 border-b border-slate-200">
-            <tr>
-              <th class="py-3 px-4">Entity Details</th>
-              <th class="py-3 px-4">Source Error Analysis</th>
-              <th class="py-3 px-4">Recommended Action</th>
-              <th class="py-3 px-4">Status</th>
-              <th class="py-3 px-4 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody" class="divide-y divide-slate-200">
-            <!-- Dynamic rows populated via JS -->
-          </tbody>
-        </table>
+        <div class="p-6 space-y-6">
+          
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recommended Operational Action</h3>
+            <div id="actionBanner" class="p-4 rounded-xl border flex items-start gap-3 bg-indigo-50 border-indigo-200 text-indigo-900">
+              <i class="fa-solid fa-circle-info text-xl mt-0.5"></i>
+              <div>
+                <p id="actionTitle" class="font-bold text-sm">Action Title</p>
+                <p id="actionDesc" class="text-xs mt-0.5 text-indigo-700">Detailed steps to take for this error.</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Source Errors Detected</h3>
+            <div id="sourceErrorsList" class="space-y-2 max-h-56 overflow-y-auto pr-2">
+              </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Resolution / Analyst Notes</label>
+            <textarea id="analystNotes" rows="2" placeholder="Add optional notes about the action taken..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+          </div>
+
+        </div>
+
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+          <button id="btnPrev" onclick="navigateQueue(-1)" class="px-4 py-2.5 border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-arrow-left"></i> Previous
+          </button>
+
+          <div class="flex items-center gap-3">
+            <button onclick="processCurrentEntity('Pending')" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-sm transition shadow-sm flex items-center gap-2">
+              <i class="fa-solid fa-clock"></i> Mark Pending & Next
+            </button>
+            <button onclick="processCurrentEntity('Completed')" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              <i class="fa-solid fa-check-circle"></i> Mark Completed & Next
+            </button>
+          </div>
+
+          <button id="btnNext" onclick="navigateQueue(1)" class="px-4 py-2.5 border border-slate-300 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition flex items-center gap-2">
+            Next <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+
       </div>
+
     </div>
 
   </main>
@@ -112,18 +131,10 @@
   <script>
     const SOURCES = ['Healthgrades', 'Wellness', 'RateMDs', 'WebMD', 'Vitals', 'ShareCare', 'DocSpot', 'Google', 'Facebook', 'Facebook Reviews', 'YellowPages', 'Yelp', 'ZocDoc', 'DDC', 'Bing', 'MedicalNewsToday', 'Healthline', 'AppleMaps'];
 
-    let globalData = [];
+    let queueData = [];
+    let currentIndex = 0;
 
-    // Initialize UI Source Dropdown
-    const filterSource = document.getElementById('filterSource');
-    SOURCES.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s;
-      opt.textContent = s;
-      filterSource.appendChild(opt);
-    });
-
-    // File Upload Handler
+    // Excel Upload Listener
     document.getElementById('excelFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -135,14 +146,14 @@
         const sheetName = workbook.SheetNames[0];
         const rawJson = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        processWorkbookData(rawJson);
+        initializeQueue(rawJson);
       };
       reader.readAsArrayBuffer(file);
     });
 
-    // Process & Analyze Excel Rows
-    function processWorkbookData(rows) {
-      globalData = rows.map((row, idx) => {
+    // Initialize Queue Data
+    function initializeQueue(rows) {
+      queueData = rows.map((row, idx) => {
         const entityId = row['Entity ID'] || `Row-${idx+1}`;
         let payloadObj = {};
         try {
@@ -163,8 +174,8 @@
           }
         });
 
-        // Determine Primary Action Recommendation
-        const recommendedAction = deriveRecommendedAction(sourceErrors, zip);
+        // Recommended Action Mapping
+        const action = deriveRecommendedAction(sourceErrors, zip);
 
         return {
           id: entityId,
@@ -172,30 +183,107 @@
           zip: zip,
           state: state,
           sourceErrors: sourceErrors,
-          recommendedAction: recommendedAction,
+          action: action,
           status: 'Pending',
           notes: ''
         };
       });
 
-      // Show Dashboard Elements
-      document.getElementById('statsSection').classList.remove('hidden');
-      document.getElementById('filterSection').classList.remove('hidden');
-      document.getElementById('tableContainer').classList.remove('hidden');
-      document.getElementById('btnSave').classList.remove('hidden');
-      document.getElementById('btnSave').classList.add('flex');
-      document.getElementById('btnDownload').classList.remove('hidden');
-      document.getElementById('btnDownload').classList.add('flex');
+      currentIndex = 0;
+      document.getElementById('uploadCard').classList.add('hidden');
+      document.getElementById('workbenchCard').classList.remove('hidden');
+      document.getElementById('progressCounter').classList.remove('hidden');
 
-      renderTable();
-      updateDashboardStats();
+      renderCurrentEntity();
     }
 
-    // Parse Source Field Strings/JSONs
+    // Render Active Entity Card
+    function renderCurrentEntity() {
+      if (queueData.length === 0) return;
+
+      const current = queueData[currentIndex];
+
+      // Update Top Counters & Progress
+      document.getElementById('currentIndexText').textContent = currentIndex + 1;
+      document.getElementById('totalCountText').textContent = queueData.length;
+      
+      const pct = Math.round(((currentIndex) / queueData.length) * 100);
+      document.getElementById('progressPct').textContent = `${pct}%`;
+      document.getElementById('progressBar').style.width = `${pct}%`;
+
+      // Update Entity Details
+      document.getElementById('entityName').textContent = current.name;
+      document.getElementById('entityMeta').textContent = `Entity ID: ${current.id} | ZIP: ${current.zip} | State: ${current.state}`;
+      document.getElementById('analystNotes').value = current.notes || '';
+
+      // Update Status Badge
+      const statusBadge = document.getElementById('entityStatusBadge');
+      statusBadge.textContent = current.status;
+      if (current.status === 'Completed') {
+        statusBadge.className = "px-3 py-1 text-xs font-bold rounded-full bg-emerald-500 text-white";
+      } else {
+        statusBadge.className = "px-3 py-1 text-xs font-bold rounded-full bg-amber-500 text-white";
+      }
+
+      // Action Banner
+      document.getElementById('actionTitle').textContent = current.action.title;
+      document.getElementById('actionDesc').textContent = current.action.desc;
+
+      // Source Errors List
+      const errorsContainer = document.getElementById('sourceErrorsList');
+      if (current.sourceErrors.length === 0) {
+        errorsContainer.innerHTML = `<div class="p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg font-medium">No reported errors found for this entity.</div>`;
+      } else {
+        errorsContainer.innerHTML = current.sourceErrors.map(e => `
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs flex justify-between items-start gap-3">
+            <div>
+              <span class="font-bold text-slate-800">${e.source}</span>
+              <p class="text-slate-500 mt-0.5">${e.message}</p>
+            </div>
+            <span class="px-2 py-0.5 rounded font-mono font-bold badge-${e.code}">${e.code}</span>
+          </div>
+        `).join('');
+      }
+
+      // Nav Button States
+      document.getElementById('btnPrev').disabled = (currentIndex === 0);
+      document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
+    }
+
+    // Process Action & Advance
+    function processCurrentEntity(newStatus) {
+      if (queueData.length === 0) return;
+
+      // Save Notes & Status
+      queueData[currentIndex].status = newStatus;
+      queueData[currentIndex].notes = document.getElementById('analystNotes').value;
+
+      // Auto Advance to Next Entity
+      if (currentIndex < queueData.length - 1) {
+        currentIndex++;
+        renderCurrentEntity();
+      } else {
+        alert("Queue Complete! You have reviewed all entities in this file.");
+        renderCurrentEntity();
+      }
+    }
+
+    // Navigation Controls
+    function navigateQueue(step) {
+      // Save current notes before moving
+      queueData[currentIndex].notes = document.getElementById('analystNotes').value;
+
+      const target = currentIndex + step;
+      if (target >= 0 && target < queueData.length) {
+        currentIndex = target;
+        renderCurrentEntity();
+      }
+    }
+
+    // Helpers
     function parseSourceError(source, rawVal) {
       let code = 500;
       let msg = String(rawVal);
-
       if (msg.startsWith('[') || msg.startsWith('{')) {
         try {
           const parsed = JSON.parse(msg);
@@ -204,154 +292,45 @@
           msg = item.message || msg;
         } catch(e) {}
       }
-
       return { source, code, message: msg };
     }
 
-    // Derive Action Guidance Matrix
     function deriveRecommendedAction(errors, zip) {
-      if (errors.length === 0) return { text: "No Action Needed (Valid Data)", class: "text-emerald-600 bg-emerald-50" };
-
-      const hasZipError = errors.some(e => e.message.includes("no valid 'Zip'"));
-      if (hasZipError || zip === 'Missing') {
-        return { text: "Fix Payload: Add valid ZIP Code to Entity in DM", class: "text-amber-700 bg-amber-50" };
+      if (errors.length === 0) return { title: "No Action Needed", desc: "Source URLs are valid and verified." };
+      if (zip === 'Missing' || errors.some(e => e.message.includes("no valid 'Zip'"))) {
+        return { title: "Fix Payload: Add Valid ZIP Code", desc: "Update entity payload in DataManager with valid ZIP code and re-trigger discovery." };
       }
-
-      const has409Conflict = errors.some(e => e.code === 409 || e.message.includes("already exists"));
-      if (has409Conflict) {
-        return { text: "Resolve Conflict: Verify & merge duplicate PlaceID/Entity ID", class: "text-indigo-700 bg-indigo-50" };
+      if (errors.some(e => e.code === 409 || e.message.includes("already exists"))) {
+        return { title: "Resolve Place ID Conflict", desc: "Check Backoffice for existing location/PlaceID mapping and merge duplicate entity." };
       }
-
-      const hasYelpUnsupported = errors.some(e => e.source === 'Yelp' && e.message.includes("temporarily not supported"));
-      if (hasYelpUnsupported) {
-        return { text: "Yelp Configuration: Submit manual SF task to India Product Support", class: "text-purple-700 bg-purple-50" };
+      if (errors.some(e => e.source === 'Yelp' && e.message.includes("temporarily not supported"))) {
+        return { title: "Raise Salesforce Ticket (Yelp)", desc: "Submit manual SF task for India Product Support to configure Yelp harvester." };
       }
-
-      const hasProxyError = errors.some(e => e.message.includes("smart proxy") || e.message.includes("429 Too Many Requests"));
-      if (hasProxyError) {
-        return { text: "Rerun Job: SmartProxy rate limited (429). Schedule retry batch", class: "text-rose-700 bg-rose-50" };
-      }
-
-      return { text: "Manual Verification: Check URL discovery queue", class: "text-slate-700 bg-slate-100" };
+      return { title: "Manual Verification Required", desc: "Review raw source response and manually update harvester URL." };
     }
 
-    // Render Table Rows
-    function renderTable() {
-      const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = '';
-
-      const statusFilter = document.getElementById('filterStatus').value;
-      const srcFilter = document.getElementById('filterSource').value;
-      const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-
-      const filtered = globalData.filter(item => {
-        if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
-        if (srcFilter !== 'ALL' && !item.sourceErrors.some(e => e.source === srcFilter)) return false;
-        if (searchQuery && !item.id.toString().toLowerCase().includes(searchQuery) && !item.name.toLowerCase().includes(searchQuery)) return false;
-        return true;
-      });
-
-      filtered.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 border-b border-slate-100";
-
-        // Errors Badge List
-        const errorsHtml = item.sourceErrors.map(e => `
-          <div class="mb-1 text-xs">
-            <span class="font-semibold text-slate-700">${e.source}:</span>
-            <span class="px-1.5 py-0.5 rounded font-mono badge-${e.code}">${e.code}</span>
-            <span class="text-slate-500">${e.message.substring(0, 50)}...</span>
-          </div>
-        `).join('') || '<span class="text-xs text-slate-400">No reported errors</span>';
-
-        // Status Colors
-        let statusColor = "bg-amber-100 text-amber-800 border-amber-300";
-        if (item.status === 'In Progress') statusColor = "bg-indigo-100 text-indigo-800 border-indigo-300";
-        if (item.status === 'Completed') statusColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-
-        tr.innerHTML = `
-          <td class="py-3 px-4 font-medium text-slate-900">
-            <div>${item.name}</div>
-            <div class="text-xs text-slate-400">ID: ${item.id} | ZIP: ${item.zip} (${item.state})</div>
-          </td>
-          <td class="py-3 px-4 max-w-xs">${errorsHtml}</td>
-          <td class="py-3 px-4">
-            <span class="text-xs font-medium px-2.5 py-1 rounded-md inline-block ${item.recommendedAction.class}">
-              ${item.recommendedAction.text}
-            </span>
-          </td>
-          <td class="py-3 px-4">
-            <select onchange="updateStatus('${item.id}', this.value)" class="text-xs font-semibold px-2 py-1 rounded-lg border ${statusColor} focus:outline-none cursor-pointer">
-              <option value="Pending" ${item.status === 'Pending' ? 'selected' : ''}>Pending</option>
-              <option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-              <option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>Completed</option>
-            </select>
-          </td>
-          <td class="py-3 px-4 text-center">
-            <button onclick="toggleComplete('${item.id}')" class="p-2 text-slate-400 hover:text-emerald-600 transition" title="Toggle Completed">
-              <i class="fa-solid fa-circle-check text-lg ${item.status === 'Completed' ? 'text-emerald-600' : ''}"></i>
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    // Toggle Status Helpers
-    function updateStatus(id, newStatus) {
-      const entity = globalData.find(e => e.id.toString() === id.toString());
-      if (entity) {
-        entity.status = newStatus;
-        updateDashboardStats();
-        renderTable();
-      }
-    }
-
-    function toggleComplete(id) {
-      const entity = globalData.find(e => e.id.toString() === id.toString());
-      if (entity) {
-        entity.status = entity.status === 'Completed' ? 'Pending' : 'Completed';
-        updateDashboardStats();
-        renderTable();
-      }
-    }
-
-    // Update Dashboard Counts
-    function updateDashboardStats() {
-      document.getElementById('statTotal').textContent = globalData.length;
-      document.getElementById('statPending').textContent = globalData.filter(e => e.status === 'Pending').length;
-      document.getElementById('statInProgress').textContent = globalData.filter(e => e.status === 'In Progress').length;
-      document.getElementById('statCompleted').textContent = globalData.filter(e => e.status === 'Completed').length;
-    }
-
-    // Event Listeners for Filters
-    document.getElementById('filterStatus').addEventListener('change', renderTable);
-    document.getElementById('filterSource').addEventListener('change', renderTable);
-    document.getElementById('searchInput').addEventListener('input', renderTable);
-
-    // Save State to LocalStorage
+    // Save & Export
     document.getElementById('btnSave').addEventListener('click', () => {
-      localStorage.setItem('url_discovery_data', JSON.stringify(globalData));
-      alert('State saved successfully to local browser storage!');
+      localStorage.setItem('url_discovery_queue', JSON.stringify(queueData));
+      alert('Local state saved successfully!');
     });
 
-    // Export Processed File to XLSX
     document.getElementById('btnDownload').addEventListener('click', () => {
-      const exportRows = globalData.map(item => ({
+      const exportRows = queueData.map(item => ({
         'Entity ID': item.id,
         'Entity Name': item.name,
         'ZIP': item.zip,
         'State': item.state,
-        'Action Status': item.status,
-        'Recommended Action': item.recommendedAction.text,
-        'Total Source Errors': item.sourceErrors.length,
-        'Error Breakdown': item.sourceErrors.map(e => `${e.source}: [${e.code}] ${e.message}`).join(' | ')
+        'Status': item.status,
+        'Recommended Action': item.action.title,
+        'Analyst Notes': item.notes,
+        'Total Errors': item.sourceErrors.length
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportRows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Analysis_Report");
-      XLSX.writeFile(wb, "URL_Discovery_Action_Report.xlsx");
+      XLSX.utils.book_append_sheet(wb, ws, "Processed_Queue");
+      XLSX.writeFile(wb, "Processed_URL_Discovery_Queue.xlsx");
     });
   </script>
 </body>

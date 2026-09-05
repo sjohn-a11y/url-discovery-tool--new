@@ -53,29 +53,50 @@
 
   <main class="max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
 
-    <!-- Top KPI Cards Section -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="card-box p-5 text-center shadow-sm">
-        <p class="text-sm font-medium text-slate-500">Total Entities</p>
-        <p id="kpiTotalEntities" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+    <!-- Top KPI Cards Section with Pace Tracker -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="card-box p-4 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Total Entities</p>
+        <p id="kpiTotalEntities" class="text-xl font-bold text-blue-600 mt-1">0</p>
       </div>
-      <div class="card-box p-5 text-center shadow-sm">
-        <p class="text-sm font-medium text-slate-500">Completed</p>
-        <p id="kpiCompleted" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+      <div class="card-box p-4 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Completed</p>
+        <p id="kpiCompleted" class="text-xl font-bold text-emerald-600 mt-1">0</p>
       </div>
-      <div class="card-box p-5 text-center shadow-sm">
-        <p class="text-sm font-medium text-slate-500">Pending</p>
-        <p id="kpiPending" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+      <div class="card-box p-4 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Pending</p>
+        <p id="kpiPending" class="text-xl font-bold text-amber-600 mt-1">0</p>
       </div>
-      <div class="card-box p-5 text-center shadow-sm">
-        <p class="text-sm font-medium text-slate-500">Total URLs Verified</p>
-        <p id="kpiUrlsVerified" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+      <div class="card-box p-4 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Total URLs Verified</p>
+        <p id="kpiUrlsVerified" class="text-xl font-bold text-blue-600 mt-1">0</p>
+      </div>
+      
+      <!-- Live Hourly Pace Tracker Card -->
+      <div class="card-box p-4 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pace Tracker</span>
+            <button onclick="resetPaceTimer()" title="Reset Session Timer" class="text-slate-400 hover:text-white text-xs">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+          <div class="flex items-baseline justify-center gap-1 mt-1">
+            <span id="kpiHourlyPace" class="text-2xl font-black text-amber-400">0</span>
+            <span class="text-xs font-medium text-slate-300">items/hr</span>
+          </div>
+        </div>
+        <div class="mt-2">
+          <span id="paceStatusBadge" class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-700 text-slate-300">
+            Target: 50/hr
+          </span>
+        </div>
       </div>
     </div>
 
     <hr class="border-slate-200"/>
 
-    <!-- Queue Counter Text -->
+    <!-- Queue Counter & Auto-Save Indicator -->
     <div id="counterHeader" class="hidden justify-between items-center text-base font-medium text-slate-600">
       <div><span id="currentIdx">0</span> / <span id="totalIdx">0</span></div>
       <span id="autoSaveIndicator" class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
@@ -86,7 +107,7 @@
     <!-- Main Entity Workspace Card -->
     <div id="entityCard" class="hidden card-box p-8 shadow-sm space-y-6">
       
-      <!-- Entity Name & Blue Entity ID -->
+      <!-- Entity Name & Blue Entity ID (Linked to EV Tool) -->
       <div>
         <h2 id="entityTitle" class="text-2xl font-bold text-slate-900">Entity Name</h2>
         <a id="entityIdLink" href="#" target="_blank" rel="noopener noreferrer" class="text-base font-semibold text-blue-600 hover:underline mt-1 inline-flex items-center gap-1.5" title="Open in EV Tool">
@@ -229,6 +250,10 @@
     let queueData = [];
     let currentIndex = 0;
     let totalVerifiedUrls = 0;
+    
+    // Pace Tracker Timer Variables
+    let sessionStartTime = null;
+    let itemsProcessedInSession = 0;
 
     window.addEventListener('DOMContentLoaded', () => {
       const savedState = localStorage.getItem('url_discovery_active_session');
@@ -309,6 +334,9 @@
 
       currentIndex = 0;
       totalVerifiedUrls = 0;
+      sessionStartTime = Date.now();
+      itemsProcessedInSession = 0;
+
       document.getElementById('restoreBanner').classList.add('hidden');
       document.getElementById('counterHeader').classList.remove('hidden');
       document.getElementById('counterHeader').classList.add('flex');
@@ -349,7 +377,6 @@
       document.getElementById('metaEntityType').textContent = entity.entityType;
       document.getElementById('metaNpi').textContent = entity.npi;
 
-      // Populate Inputs
       document.getElementById('remarks').value = entity.remarks || '';
       document.getElementById('siteDownList').value = entity.siteDownList || '';
 
@@ -415,6 +442,8 @@
         queueData: queueData,
         currentIndex: currentIndex,
         totalVerifiedUrls: totalVerifiedUrls,
+        sessionStartTime: sessionStartTime || Date.now(),
+        itemsProcessedInSession: itemsProcessedInSession,
         savedAt: new Date().toISOString()
       };
 
@@ -429,6 +458,8 @@
       queueData = payload.queueData || [];
       currentIndex = payload.currentIndex || 0;
       totalVerifiedUrls = payload.totalVerifiedUrls || 0;
+      sessionStartTime = payload.sessionStartTime || Date.now();
+      itemsProcessedInSession = payload.itemsProcessedInSession || 0;
 
       document.getElementById('restoreBanner').classList.add('hidden');
       document.getElementById('counterHeader').classList.remove('hidden');
@@ -454,6 +485,8 @@
       queueData[currentIndex].status = status;
       if (status === 'Completed') totalVerifiedUrls++;
 
+      itemsProcessedInSession++;
+
       autoSaveRuntimeState();
       updateKPIs();
 
@@ -477,11 +510,41 @@
       }
     }
 
+    function resetPaceTimer() {
+      sessionStartTime = Date.now();
+      itemsProcessedInSession = 0;
+      updateKPIs();
+    }
+
     function updateKPIs() {
       document.getElementById('kpiTotalEntities').textContent = queueData.length;
       document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
       document.getElementById('kpiPending').textContent = queueData.filter(e => e.status === 'Pending').length;
       document.getElementById('kpiUrlsVerified').textContent = totalVerifiedUrls;
+
+      // Calculate Hourly Pace
+      if (!sessionStartTime) sessionStartTime = Date.now();
+      const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
+      
+      let pace = 0;
+      if (elapsedHours > 0 && itemsProcessedInSession > 0) {
+        pace = Math.round(itemsProcessedInSession / elapsedHours);
+      }
+
+      document.getElementById('kpiHourlyPace').textContent = pace;
+
+      // Pace Status Badge Color
+      const badge = document.getElementById('paceStatusBadge');
+      if (pace >= 50) {
+        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500 text-white";
+        badge.textContent = `Ahead (${pace}/hr)`;
+      } else if (pace >= 30) {
+        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-white";
+        badge.textContent = `On Pace (${pace}/hr)`;
+      } else {
+        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-700 text-slate-300";
+        badge.textContent = `Target: 50/hr`;
+      }
     }
 
     function exportData() {

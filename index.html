@@ -29,9 +29,16 @@
       <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
         <i class="fa-solid fa-file-excel"></i> Upload Excel File
       </button>
-      <button id="btnSortIndustry" onclick="sortQueueByIndustry()" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
-        <i class="fa-solid fa-arrow-down-a-z"></i> Sort by Industry (A-Z)
-      </button>
+
+      <!-- Dynamic Industry Filter Dropdown -->
+      <div id="industryFilterContainer" class="hidden flex items-center gap-2 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5">
+        <i class="fa-solid fa-filter text-slate-500 text-xs"></i>
+        <label for="industrySelect" class="text-xs font-bold text-slate-600 uppercase">Industry:</label>
+        <select id="industrySelect" onchange="applyIndustryFilter()" class="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer">
+          <option value="ALL">All Industries</option>
+        </select>
+      </div>
+
       <button id="btnDownload" onclick="exportData()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
         <i class="fa-solid fa-download"></i> Export (.xlsx)
       </button>
@@ -101,7 +108,7 @@
 
     <!-- Queue Counter & Auto-Save Indicator -->
     <div id="counterHeader" class="hidden justify-between items-center text-base font-medium text-slate-600">
-      <div><span id="currentIdx">0</span> / <span id="totalIdx">0</span></div>
+      <div><span id="currentIdx">0</span> / <span id="totalIdx">0</span> <span id="filterLabel" class="text-xs text-blue-600 font-bold ml-2"></span></div>
       <span id="autoSaveIndicator" class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
         <i class="fa-solid fa-circle-check"></i> Real-time Auto-Save Active
       </span>
@@ -250,9 +257,11 @@
   <script>
     const SOURCES = ['Healthgrades', 'Wellness', 'RateMDs', 'WebMD', 'Vitals', 'ShareCare', 'DocSpot', 'Google', 'Facebook', 'Facebook Reviews', 'YellowPages', 'Yelp', 'ZocDoc', 'DDC', 'Bing', 'MedicalNewsToday', 'Healthline', 'AppleMaps'];
 
-    let queueData = [];
+    let queueData = []; // Full raw dataset
+    let filteredQueue = []; // Active view queue
     let currentIndex = 0;
     let totalVerifiedUrls = 0;
+    let selectedIndustry = 'ALL';
     
     // Pace Tracker Timer Variables
     let sessionStartTime = null;
@@ -335,6 +344,9 @@
         };
       });
 
+      populateIndustryDropdown();
+      filteredQueue = [...queueData];
+
       currentIndex = 0;
       totalVerifiedUrls = 0;
       sessionStartTime = Date.now();
@@ -344,7 +356,8 @@
       document.getElementById('counterHeader').classList.remove('hidden');
       document.getElementById('counterHeader').classList.add('flex');
       document.getElementById('entityCard').classList.remove('hidden');
-      document.getElementById('btnSortIndustry').classList.remove('hidden');
+      document.getElementById('industryFilterContainer').classList.remove('hidden');
+      document.getElementById('industryFilterContainer').classList.add('flex');
       document.getElementById('btnDownload').classList.remove('hidden');
 
       autoSaveRuntimeState();
@@ -352,22 +365,35 @@
       renderEntity();
     }
 
-    function sortQueueByIndustry() {
-      if (queueData.length === 0) return;
+    function populateIndustryDropdown() {
+      const select = document.getElementById('industrySelect');
+      select.innerHTML = '<option value="ALL">All Industries</option>';
 
+      const industries = Array.from(new Set(queueData.map(e => e.industry).filter(Boolean))).sort();
+      industries.forEach(ind => {
+        const opt = document.createElement('option');
+        opt.value = ind;
+        opt.textContent = ind;
+        select.appendChild(opt);
+      });
+    }
+
+    function applyIndustryFilter() {
       saveActiveInputFields();
 
-      queueData.sort((a, b) => {
-        const indA = (a.industry || '').toLowerCase();
-        const indB = (b.industry || '').toLowerCase();
-        return indA.localeCompare(indB);
-      });
+      selectedIndustry = document.getElementById('industrySelect').value;
+
+      if (selectedIndustry === 'ALL') {
+        filteredQueue = [...queueData];
+        document.getElementById('filterLabel').textContent = '';
+      } else {
+        filteredQueue = queueData.filter(e => e.industry === selectedIndustry);
+        document.getElementById('filterLabel').textContent = `(Filtered: ${selectedIndustry})`;
+      }
 
       currentIndex = 0;
       autoSaveRuntimeState();
       renderEntity();
-
-      alert('Queue successfully sorted by Industry (A-Z)!');
     }
 
     function linkifyText(text) {
@@ -379,12 +405,16 @@
     }
 
     function renderEntity() {
-      if (queueData.length === 0) return;
+      if (filteredQueue.length === 0) {
+        document.getElementById('entityTitle').textContent = "No Entities Found";
+        document.getElementById('errorTableBody').innerHTML = `<tr><td colspan="3" class="py-4 px-4 text-center text-slate-400">No entities match the selected filter.</td></tr>`;
+        return;
+      }
 
-      const entity = queueData[currentIndex];
+      const entity = filteredQueue[currentIndex];
 
       document.getElementById('currentIdx').textContent = currentIndex + 1;
-      document.getElementById('totalIdx').textContent = queueData.length;
+      document.getElementById('totalIdx').textContent = filteredQueue.length;
 
       document.getElementById('entityTitle').textContent = entity.name;
       
@@ -435,16 +465,16 @@
       }
 
       document.getElementById('btnPrev').disabled = (currentIndex === 0);
-      document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
+      document.getElementById('btnNext').disabled = (currentIndex === filteredQueue.length - 1);
     }
 
     function saveActiveInputFields() {
-      if (!queueData[currentIndex]) return;
+      if (!filteredQueue[currentIndex]) return;
 
-      queueData[currentIndex].remarks = document.getElementById('remarks').value;
-      queueData[currentIndex].siteDownList = document.getElementById('siteDownList').value;
+      filteredQueue[currentIndex].remarks = document.getElementById('remarks').value;
+      filteredQueue[currentIndex].siteDownList = document.getElementById('siteDownList').value;
 
-      queueData[currentIndex].metrics = {
+      filteredQueue[currentIndex].metrics = {
         urlsChecked: Number(document.getElementById('m_urlsChecked').value) || 0,
         urlsNewlyConfigured: Number(document.getElementById('m_urlsNewlyConfigured').value) || 0,
         dupUrlsFetched: Number(document.getElementById('m_dupUrlsFetched').value) || 0,
@@ -463,6 +493,7 @@
       const sessionPayload = {
         queueData: queueData,
         currentIndex: currentIndex,
+        selectedIndustry: selectedIndustry,
         totalVerifiedUrls: totalVerifiedUrls,
         sessionStartTime: sessionStartTime || Date.now(),
         itemsProcessedInSession: itemsProcessedInSession,
@@ -479,15 +510,26 @@
       const payload = JSON.parse(savedState);
       queueData = payload.queueData || [];
       currentIndex = payload.currentIndex || 0;
+      selectedIndustry = payload.selectedIndustry || 'ALL';
       totalVerifiedUrls = payload.totalVerifiedUrls || 0;
       sessionStartTime = payload.sessionStartTime || Date.now();
       itemsProcessedInSession = payload.itemsProcessedInSession || 0;
+
+      populateIndustryDropdown();
+      document.getElementById('industrySelect').value = selectedIndustry;
+
+      if (selectedIndustry === 'ALL') {
+        filteredQueue = [...queueData];
+      } else {
+        filteredQueue = queueData.filter(e => e.industry === selectedIndustry);
+      }
 
       document.getElementById('restoreBanner').classList.add('hidden');
       document.getElementById('counterHeader').classList.remove('hidden');
       document.getElementById('counterHeader').classList.add('flex');
       document.getElementById('entityCard').classList.remove('hidden');
-      document.getElementById('btnSortIndustry').classList.remove('hidden');
+      document.getElementById('industryFilterContainer').classList.remove('hidden');
+      document.getElementById('industryFilterContainer').classList.add('flex');
       document.getElementById('btnDownload').classList.remove('hidden');
 
       updateKPIs();
@@ -505,7 +547,7 @@
 
     function markStatus(status) {
       saveActiveInputFields();
-      queueData[currentIndex].status = status;
+      filteredQueue[currentIndex].status = status;
       if (status === 'Completed') totalVerifiedUrls++;
 
       itemsProcessedInSession++;
@@ -513,11 +555,11 @@
       autoSaveRuntimeState();
       updateKPIs();
 
-      if (currentIndex < queueData.length - 1) {
+      if (currentIndex < filteredQueue.length - 1) {
         currentIndex++;
         renderEntity();
       } else {
-        alert('You have reached the end of the queue!');
+        alert('You have reached the end of the active queue!');
         renderEntity();
       }
     }
@@ -527,7 +569,7 @@
       autoSaveRuntimeState();
 
       const target = currentIndex + step;
-      if (target >= 0 && target < queueData.length) {
+      if (target >= 0 && target < filteredQueue.length) {
         currentIndex = target;
         renderEntity();
       }

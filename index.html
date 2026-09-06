@@ -18,32 +18,38 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
 
-  <!-- Analyst Login Modal -->
+  <!-- Analyst Login & Registration Modal -->
   <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="card-box max-w-md w-full p-8 shadow-2xl border-slate-200 text-center space-y-6 bg-white">
       <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 text-2xl mb-2">
         <i class="fa-solid fa-user-lock"></i>
       </div>
       <div>
-        <h2 class="text-2xl font-bold text-slate-900">Analyst Sign In</h2>
-        <p class="text-xs text-slate-500 mt-1">Enter your credentials to access the URL Discovery Portal</p>
+        <h2 class="text-2xl font-bold text-slate-900">Analyst Portal</h2>
+        <p class="text-xs text-slate-500 mt-1">Sign in to your account or register a new analyst profile</p>
       </div>
 
       <div class="space-y-4 text-left">
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Analyst Name / ID</label>
-          <input type="text" id="loginUsername" placeholder="e.g., Analyst_01" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Analyst Username / ID</label>
+          <input type="text" id="loginUsername" placeholder="e.g., analyst_01" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Access Key</label>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Access Key / Password</label>
           <input type="password" id="loginPassword" placeholder="••••••••" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
         </div>
       </div>
 
-      <button onclick="handleLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg shadow-md transition">
-        Sign In & Access Tool
-      </button>
-      <p id="loginError" class="hidden text-xs text-rose-600 font-semibold"></p>
+      <div class="flex gap-3 pt-2">
+        <button onclick="handleLogin()" class="w-1/2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg shadow-md transition">
+          Sign In
+        </button>
+        <button onclick="handleSignUp()" class="w-1/2 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-lg shadow-sm transition border border-slate-300">
+          Register New
+        </button>
+      </div>
+
+      <p id="loginError" class="hidden text-xs text-rose-600 font-semibold bg-rose-50 p-2.5 rounded-lg border border-rose-200"></p>
     </div>
   </div>
 
@@ -53,12 +59,12 @@
       <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-xl"></i>
       <h1 class="text-lg font-bold text-slate-800 tracking-tight">URL Discovery Analyzing Tool</h1>
     </div>
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-6">
       <div class="text-right">
-        <span class="block text-xs text-slate-400 font-medium">Logged in as</span>
-        <span id="activeUserBadge" class="text-sm font-bold text-slate-800">-</span>
+        <span class="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Logged in as</span>
+        <span id="activeUserBadge" class="text-sm font-extrabold text-blue-600">-</span>
       </div>
-      <button onclick="handleLogout()" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition font-semibold">
+      <button onclick="handleLogout()" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition font-semibold flex items-center gap-1.5">
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>
       <div id="fileUploadContainer" class="flex items-center gap-3">
@@ -110,7 +116,7 @@
         <p id="kpiUrlsVerified" class="text-xl font-bold text-blue-600 mt-1">0</p>
       </div>
       
-      <!-- Live Hourly Pace Tracker Card -->
+      <!-- Live Hourly Pace Tracker Card (Target: 1,000 URLs / Day ~ 143 URLs/hr) -->
       <div class="card-box p-4 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center">
@@ -315,19 +321,53 @@
       }
     }
 
-    function handleLogin() {
-      const user = document.getElementById('loginUsername').value.trim();
+    function handleSignUp() {
+      const user = document.getElementById('loginUsername').value.trim().toLowerCase();
       const pass = document.getElementById('loginPassword').value.trim();
 
-      if (!user) {
-        showLoginError('Please enter your Analyst Name or ID.');
+      if (!user || !pass) {
+        showLoginError('Please enter both a username and access key to register.');
         return;
       }
 
-      // Simple passkey validation (or accept any user for internal access)
+      let accounts = JSON.parse(localStorage.getItem('registered_analyst_accounts') || '{}');
+
+      if (accounts[user]) {
+        showLoginError('Username already exists! Please click Sign In instead.');
+        return;
+      }
+
+      // Register new user
+      accounts[user] = pass;
+      localStorage.setItem('registered_analyst_accounts', JSON.stringify(accounts));
+
       currentUser = user;
       localStorage.setItem('url_discovery_user', currentUser);
+      
+      hideLoginError();
+      alert(`Account successfully created for "${user}"!`);
       checkLoginSession();
+    }
+
+    function handleLogin() {
+      const user = document.getElementById('loginUsername').value.trim().toLowerCase();
+      const pass = document.getElementById('loginPassword').value.trim();
+
+      if (!user || !pass) {
+        showLoginError('Please enter both username and access key.');
+        return;
+      }
+
+      let accounts = JSON.parse(localStorage.getItem('registered_analyst_accounts') || '{}');
+
+      if (accounts[user] && accounts[user] === pass) {
+        currentUser = user;
+        localStorage.setItem('url_discovery_user', currentUser);
+        hideLoginError();
+        checkLoginSession();
+      } else {
+        showLoginError('Invalid Username or Access Key. Click "Register New" if you do not have an account.');
+      }
     }
 
     function handleLogout() {
@@ -339,6 +379,10 @@
       const err = document.getElementById('loginError');
       err.textContent = msg;
       err.classList.remove('hidden');
+    }
+
+    function hideLoginError() {
+      document.getElementById('loginError').classList.add('hidden');
     }
 
     document.getElementById('excelFile').addEventListener('change', function(e) {

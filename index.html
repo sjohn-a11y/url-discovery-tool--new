@@ -18,20 +18,58 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
 
-  <!-- Header -->
-  <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
+  <!-- Analyst Login Modal -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="card-box max-w-md w-full p-8 shadow-2xl border-slate-200 text-center space-y-6 bg-white">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-600 text-2xl mb-2">
+        <i class="fa-solid fa-user-lock"></i>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold text-slate-900">Analyst Sign In</h2>
+        <p class="text-xs text-slate-500 mt-1">Enter your credentials to access the URL Discovery Portal</p>
+      </div>
+
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Analyst Name / ID</label>
+          <input type="text" id="loginUsername" placeholder="e.g., Analyst_01" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Access Key</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+        </div>
+      </div>
+
+      <button onclick="handleLogin()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg shadow-md transition">
+        Sign In & Access Tool
+      </button>
+      <p id="loginError" class="hidden text-xs text-rose-600 font-semibold"></p>
+    </div>
+  </div>
+
+  <!-- Workspace Header (Hidden until login) -->
+  <header id="mainHeader" class="hidden bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
     <div class="flex items-center space-x-3">
       <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-xl"></i>
       <h1 class="text-lg font-bold text-slate-800 tracking-tight">URL Discovery Analyzing Tool</h1>
     </div>
-    <div id="fileUploadContainer" class="flex items-center gap-3">
-      <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden"/>
-      <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
-        <i class="fa-solid fa-file-excel"></i> Upload Excel File
+    <div class="flex items-center gap-4">
+      <div class="text-right">
+        <span class="block text-xs text-slate-400 font-medium">Logged in as</span>
+        <span id="activeUserBadge" class="text-sm font-bold text-slate-800">-</span>
+      </div>
+      <button onclick="handleLogout()" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition font-semibold">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>
-      <button id="btnDownload" onclick="exportData()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
-        <i class="fa-solid fa-download"></i> Export (.xlsx)
-      </button>
+      <div id="fileUploadContainer" class="flex items-center gap-3">
+        <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden"/>
+        <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+          <i class="fa-solid fa-file-excel"></i> Upload Excel File
+        </button>
+        <button id="btnDownload" onclick="exportData()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+          <i class="fa-solid fa-download"></i> Export (.xlsx)
+        </button>
+      </div>
     </div>
   </header>
 
@@ -51,7 +89,7 @@
     </div>
   </div>
 
-  <main class="max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
+  <main id="mainWorkspace" class="hidden max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
 
     <!-- Top KPI Cards Section with Pace Tracker -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -72,7 +110,7 @@
         <p id="kpiUrlsVerified" class="text-xl font-bold text-blue-600 mt-1">0</p>
       </div>
       
-      <!-- Live Hourly Pace Tracker Card (Target: 1,000 URLs / Day ~ 143 URLs/hr) -->
+      <!-- Live Hourly Pace Tracker Card -->
       <div class="card-box p-4 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center">
@@ -88,7 +126,7 @@
         </div>
         <div class="mt-2">
           <span id="paceStatusBadge" class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-700 text-slate-300">
-            Target: 1,000 URLs/day
+            Target: 1,000/day
           </span>
         </div>
       </div>
@@ -249,17 +287,59 @@
 
     let queueData = [];
     let currentIndex = 0;
-    
-    // Pace Tracker Timer Variables
+    let currentUser = null;
     let sessionStartTime = null;
 
     window.addEventListener('DOMContentLoaded', () => {
-      const savedState = localStorage.getItem('url_discovery_active_session');
-      if (savedState) {
-        document.getElementById('restoreBanner').classList.remove('hidden');
-        document.getElementById('restoreBanner').classList.add('flex');
-      }
+      checkLoginSession();
     });
+
+    function checkLoginSession() {
+      const storedUser = localStorage.getItem('url_discovery_user');
+      if (storedUser) {
+        currentUser = storedUser;
+        document.getElementById('activeUserBadge').textContent = currentUser;
+        document.getElementById('loginModal').classList.add('hidden');
+        document.getElementById('mainHeader').classList.remove('hidden');
+        document.getElementById('mainWorkspace').classList.remove('hidden');
+
+        const savedState = localStorage.getItem('url_discovery_active_session');
+        if (savedState) {
+          document.getElementById('restoreBanner').classList.remove('hidden');
+          document.getElementById('restoreBanner').classList.add('flex');
+        }
+      } else {
+        document.getElementById('loginModal').classList.remove('hidden');
+        document.getElementById('mainHeader').classList.add('hidden');
+        document.getElementById('mainWorkspace').classList.add('hidden');
+      }
+    }
+
+    function handleLogin() {
+      const user = document.getElementById('loginUsername').value.trim();
+      const pass = document.getElementById('loginPassword').value.trim();
+
+      if (!user) {
+        showLoginError('Please enter your Analyst Name or ID.');
+        return;
+      }
+
+      // Simple passkey validation (or accept any user for internal access)
+      currentUser = user;
+      localStorage.setItem('url_discovery_user', currentUser);
+      checkLoginSession();
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('url_discovery_user');
+      checkLoginSession();
+    }
+
+    function showLoginError(msg) {
+      const err = document.getElementById('loginError');
+      err.textContent = msg;
+      err.classList.remove('hidden');
+    }
 
     document.getElementById('excelFile').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -521,11 +601,9 @@
       document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
       document.getElementById('kpiPending').textContent = queueData.filter(e => e.status === 'Pending').length;
 
-      // Sum of URLs Checked Across All Entities
       const totalUrlsChecked = calculateTotalUrlsChecked();
       document.getElementById('kpiUrlsVerified').textContent = totalUrlsChecked;
 
-      // Calculate Hourly Pace (URLs Checked per Hour)
       if (!sessionStartTime) sessionStartTime = Date.now();
       const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
       
@@ -536,7 +614,6 @@
 
       document.getElementById('kpiHourlyPace').textContent = pace;
 
-      // Pace Status Badge Color (Target: 1,000 URLs / day = 143 URLs/hr)
       const badge = document.getElementById('paceStatusBadge');
       if (pace >= 140) {
         badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500 text-white";
@@ -557,6 +634,7 @@
       const exportRows = queueData.map(e => {
         const m = e.metrics || {};
         return {
+          'Analyst ID': currentUser || 'N/A',
           'Entity ID': e.id,
           'Entity Name': e.name,
           'NPI Number (Code)': e.npi,
@@ -580,7 +658,7 @@
       const ws = XLSX.utils.json_to_sheet(exportRows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Processed_Entities");
-      XLSX.writeFile(wb, "URL_Discovery_Status_Report.xlsx");
+      XLSX.writeFile(wb, `URL_Discovery_${currentUser}_Status_Report.xlsx`);
     }
   </script>
 </body>

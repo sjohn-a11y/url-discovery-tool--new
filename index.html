@@ -493,49 +493,34 @@
     }
 
     /**
-     * Determines Action badge text & styling rules
+     * Strict Binary Action Logic: "No Action Required" vs "Action Required"
      */
     function determineActionRequired(source, value) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
 
-      // Rule 1: Bing source excluded
+      // Rule 1: Bing source
       if (srcLower === 'bing') {
-        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
       // Rule 2: Message contains "invalid input"
       if (valLower.includes('invalid input')) {
-        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 3: Message contains "NO URL found"
-      if (valLower.includes('no url found')) {
-        return { text: 'Check for new URL', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
-      }
-
-      // Rule 4: Google statusCode":404
+      // Rule 3: Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
-        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 5: Google - Only check if API is provided
+      // Rule 4: Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
-        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 6: Different URL already exists
-      if (valLower.includes('different url already exists')) {
-        return { text: 'Validate Configured Links & Audit Source', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
-      }
-
-      // Rule 7: Yelp 500 / temporarily not supported
-      if (valLower.includes('temporarily not supported') || (srcLower === 'yelp' && valLower.includes('statuscode":500'))) {
-        return { text: 'Need validation', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
-      }
-
-      // Default fallback
-      return { text: 'Action required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
+      // Default fallback for all actionable cases
+      return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
     function isMultipleIndustries(industryStr) {
@@ -544,7 +529,6 @@
       const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       if (parts.length <= 1) return false;
 
-      // Check if distinct values exist
       const first = parts[0];
       return parts.some(p => p !== first);
     }

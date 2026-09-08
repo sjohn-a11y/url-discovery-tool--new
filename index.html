@@ -210,9 +210,9 @@
         <table class="w-full text-left text-sm text-slate-700">
           <thead class="bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-200">
             <tr>
-              <th class="py-3 px-4 w-1/5">Source</th>
-              <th class="py-3 px-4 w-3/5">Value</th>
-              <th class="py-3 px-4 w-1/5 text-right">Action</th>
+              <th class="py-3 px-4 w-1/6">Source</th>
+              <th class="py-3 px-4 w-1/2">Value</th>
+              <th class="py-3 px-4 w-1/3 text-right">Action Required</th>
             </tr>
           </thead>
           <tbody id="errorTableBody" class="divide-y divide-slate-200 bg-white">
@@ -398,7 +398,6 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // Show loader overlay for large files
       document.getElementById('loadingOverlay').classList.remove('hidden');
 
       setTimeout(() => {
@@ -488,6 +487,52 @@
       renderEntity();
     }
 
+    /**
+     * Determines the Action Required based on Source and Error Text rules
+     */
+    function determineActionRequired(source, value) {
+      const srcLower = (source || '').toLowerCase();
+      const valLower = (value || '').toLowerCase();
+
+      // Rule 1: Bing source is completely excluded
+      if (srcLower === 'bing') {
+        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+      }
+
+      // Rule 2: Message contains "invalid input"
+      if (valLower.includes('invalid input')) {
+        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+      }
+
+      // Rule 3: Message contains "NO URL found"
+      if (valLower.includes('no url found')) {
+        return { text: 'Check for new URL', style: 'bg-blue-50 text-blue-700 border-blue-200 font-semibold' };
+      }
+
+      // Rule 4: Google statusCode":404
+      if (srcLower === 'google' && valLower.includes('statuscode":404')) {
+        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+      }
+
+      // Rule 5: Google - Only check if API is provided (check if value contains a valid API/URL payload)
+      if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
+        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+      }
+
+      // Rule 6: Different URL already exists
+      if (valLower.includes('different url already exists')) {
+        return { text: 'Verify existing & provided URLs, search for new', style: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold' };
+      }
+
+      // Rule 7: Yelp 500 / temporarily not supported
+      if (valLower.includes('temporarily not supported') || (srcLower === 'yelp' && valLower.includes('statuscode":500'))) {
+        return { text: 'Need validation', style: 'bg-rose-50 text-rose-700 border-rose-200 font-bold' };
+      }
+
+      // Default fallback
+      return { text: 'Action required', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
+
     function linkifyText(text) {
       const urlRegex = /(https?:\/\/[^\s"',\]]+)/g;
       return text.replace(urlRegex, function(url) {
@@ -535,17 +580,19 @@
       if (entity.errors.length === 0) {
         tbody.innerHTML = `<tr><td colspan="3" class="py-4 px-4 text-center text-slate-400">No source errors recorded.</td></tr>`;
       } else {
-        entity.errors.forEach((err, idx) => {
+        entity.errors.forEach((err) => {
           const formattedValue = linkifyText(err.value);
+          const actionInfo = determineActionRequired(err.source, err.value);
+
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-50";
           tr.innerHTML = `
             <td class="py-3.5 px-4 font-semibold text-slate-800">${err.source}</td>
             <td class="py-3.5 px-4 font-mono text-xs text-slate-600 break-all">${formattedValue}</td>
             <td class="py-3.5 px-4 text-right">
-              <button onclick="retrySource('${err.source}', ${idx})" class="text-rose-600 hover:text-rose-800 font-semibold text-sm transition">
-                Retry
-              </button>
+              <span class="inline-block px-3 py-1 text-xs rounded-lg border ${actionInfo.style}">
+                ${actionInfo.text}
+              </span>
             </td>
           `;
           tbody.appendChild(tr);
@@ -593,7 +640,6 @@
 
         localStorage.setItem('url_discovery_active_session', JSON.stringify(sessionPayload));
       } catch (e) {
-        // Fallback for large payloads exceeding localStorage limit
         console.warn("Session state exceeds localStorage capacity limit.");
       }
     }
@@ -620,10 +666,6 @@
     function clearSavedSession() {
       localStorage.removeItem('url_discovery_active_session');
       document.getElementById('restoreBanner').classList.add('hidden');
-    }
-
-    function retrySource(source, idx) {
-      alert(`Retrying crawler fetch for ${source}...`);
     }
 
     function markStatus(status) {

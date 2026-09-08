@@ -184,9 +184,14 @@
           <p class="text-xs text-slate-400 font-medium">Products</p>
           <p id="metaProducts" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
         </div>
-        <div class="meta-box">
+        <div class="meta-box" id="industryBox">
           <p class="text-xs text-slate-400 font-medium">Industry</p>
-          <p id="metaIndustry" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
+          <div id="metaIndustryContainer" class="mt-0.5">
+            <p id="metaIndustry" class="text-sm font-bold text-slate-800">-</p>
+            <p id="metaIndustryNotice" class="hidden text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+              <i class="fa-solid fa-triangle-exclamation"></i> No action required for this entity
+            </p>
+          </div>
         </div>
         <div class="meta-box">
           <p class="text-xs text-slate-400 font-medium">Entity Type</p>
@@ -212,7 +217,7 @@
             <tr>
               <th class="py-3 px-4 w-1/6">Source</th>
               <th class="py-3 px-4 w-1/2">Value</th>
-              <th class="py-3 px-4 w-1/3 text-right">Action Required</th>
+              <th class="py-3 px-4 w-1/3 text-right">Action</th>
             </tr>
           </thead>
           <tbody id="errorTableBody" class="divide-y divide-slate-200 bg-white">
@@ -488,49 +493,60 @@
     }
 
     /**
-     * Determines the Action Required based on Source and Error Text rules
+     * Determines Action badge text & styling rules
      */
     function determineActionRequired(source, value) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
 
-      // Rule 1: Bing source is completely excluded
+      // Rule 1: Bing source excluded
       if (srcLower === 'bing') {
-        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
       // Rule 2: Message contains "invalid input"
       if (valLower.includes('invalid input')) {
-        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
       // Rule 3: Message contains "NO URL found"
       if (valLower.includes('no url found')) {
-        return { text: 'Check for new URL', style: 'bg-blue-50 text-blue-700 border-blue-200 font-semibold' };
+        return { text: 'Check for new URL', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
       // Rule 4: Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
-        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 5: Google - Only check if API is provided (check if value contains a valid API/URL payload)
+      // Rule 5: Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
-        return { text: 'No action required', style: 'bg-slate-100 text-slate-500 border-slate-200' };
+        return { text: 'No action required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
       // Rule 6: Different URL already exists
       if (valLower.includes('different url already exists')) {
-        return { text: 'Verify existing & provided URLs, search for new', style: 'bg-amber-50 text-amber-800 border-amber-200 font-semibold' };
+        return { text: 'Validate Configured Links & Audit Source', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
       // Rule 7: Yelp 500 / temporarily not supported
       if (valLower.includes('temporarily not supported') || (srcLower === 'yelp' && valLower.includes('statuscode":500'))) {
-        return { text: 'Need validation', style: 'bg-rose-50 text-rose-700 border-rose-200 font-bold' };
+        return { text: 'Need validation', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
       // Default fallback
-      return { text: 'Action required', style: 'bg-blue-50 text-blue-700 border-blue-200' };
+      return { text: 'Action required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
+    }
+
+    function isMultipleIndustries(industryStr) {
+      if (!industryStr || industryStr === '-') return false;
+      
+      const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (parts.length <= 1) return false;
+
+      // Check if distinct values exist
+      const first = parts[0];
+      return parts.some(p => p !== first);
     }
 
     function linkifyText(text) {
@@ -558,7 +574,20 @@
       document.getElementById('metaClient').textContent = entity.client;
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
-      document.getElementById('metaIndustry').textContent = entity.industry;
+      
+      // Industry Highlight Check
+      const indEl = document.getElementById('metaIndustry');
+      const indNotice = document.getElementById('metaIndustryNotice');
+      indEl.textContent = entity.industry;
+
+      if (isMultipleIndustries(entity.industry)) {
+        indEl.className = "text-sm font-extrabold text-rose-600";
+        indNotice.classList.remove('hidden');
+      } else {
+        indEl.className = "text-sm font-bold text-slate-800";
+        indNotice.classList.add('hidden');
+      }
+
       document.getElementById('metaEntityType').textContent = entity.entityType;
       document.getElementById('metaNpi').textContent = entity.npi;
 

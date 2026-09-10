@@ -64,12 +64,51 @@
     </div>
   </div>
 
+  <!-- Pending Entities Side Drawer -->
+  <div id="pendingDrawer" class="hidden fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs">
+    <div class="absolute inset-y-0 right-0 max-w-full flex pl-10">
+      <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+        <div class="p-6 bg-slate-900 text-white flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-amber-400"></i>
+            <h2 class="text-lg font-bold">Pending Entities Queue</h2>
+          </div>
+          <button onclick="togglePendingDrawer(false)" class="text-slate-400 hover:text-white text-lg">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="p-4 bg-slate-100 border-b border-slate-200 flex justify-between items-center text-xs font-semibold text-slate-600">
+          <span>Click any entity to jump directly to it</span>
+          <span id="pendingDrawerCount" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">0 Pending</span>
+        </div>
+        <div id="pendingListContainer" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
+          <!-- Dynamic Pending List Items -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Workspace Header -->
   <header id="mainHeader" class="hidden bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
     <div class="flex items-center space-x-3">
       <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-xl"></i>
       <h1 class="text-lg font-bold text-slate-800 tracking-tight">EV - URL Discovery File Processor</h1>
     </div>
+
+    <!-- Search Bar & Pending List Drawer Trigger -->
+    <div id="searchContainer" class="hidden flex items-center gap-3">
+      <div class="relative">
+        <input type="text" id="globalSearchInput" onkeydown="if(event.key==='Enter') searchEntityById()" placeholder="Search Entity ID..." class="w-56 pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+      </div>
+      <button onclick="searchEntityById()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200 transition">
+        Search
+      </button>
+      <button onclick="togglePendingDrawer(true)" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded-lg text-xs border border-amber-200 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-list-check"></i> Pending List
+      </button>
+    </div>
+
     <div class="flex items-center gap-6">
       <div class="text-right">
         <span class="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Logged in as</span>
@@ -268,13 +307,19 @@
         </div>
       </div>
 
-      <!-- Text Inputs: Site Down List & Remarks -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+      <!-- Text Inputs: Site Down List, Wrong Harvester Details, and Remarks -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
         <div>
           <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
             <i class="fa-solid fa-globe text-rose-500"></i> Site Down List
           </label>
           <textarea id="siteDownList" oninput="autoSaveRuntimeState()" rows="2" placeholder="List domains/sources currently down..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-bug text-amber-600"></i> Wrong Harvester Details
+          </label>
+          <textarea id="wrongHarvesterDetails" oninput="autoSaveRuntimeState()" rows="2" placeholder="Detail any incorrect scraper or harvester behavior..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
         </div>
         <div>
           <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
@@ -327,6 +372,8 @@
         document.getElementById('activeUserBadge').textContent = currentUser;
         document.getElementById('loginModal').classList.add('hidden');
         document.getElementById('mainHeader').classList.remove('hidden');
+        document.getElementById('searchContainer').classList.remove('hidden');
+        document.getElementById('searchContainer').classList.add('flex');
         document.getElementById('mainWorkspace').classList.remove('hidden');
 
         const savedState = localStorage.getItem('url_discovery_active_session');
@@ -337,6 +384,7 @@
       } else {
         document.getElementById('loginModal').classList.remove('hidden');
         document.getElementById('mainHeader').classList.add('hidden');
+        document.getElementById('searchContainer').classList.add('hidden');
         document.getElementById('mainWorkspace').classList.add('hidden');
       }
     }
@@ -489,6 +537,7 @@
           status: 'Pending',
           remarks: '',
           siteDownList: '',
+          wrongHarvesterDetails: '',
           metrics: {
             urlsChecked: 0,
             urlsNewlyConfigured: 0,
@@ -515,6 +564,67 @@
       renderEntity();
     }
 
+    function searchEntityById() {
+      const query = document.getElementById('globalSearchInput').value.trim();
+      if (!query) return;
+
+      const foundIdx = queueData.findIndex(e => String(e.id).toLowerCase() === query.toLowerCase());
+      if (foundIdx !== -1) {
+        saveActiveInputFields();
+        currentIndex = foundIdx;
+        renderEntity();
+        scrollToTop();
+      } else {
+        alert(`Entity ID "${query}" not found in current dataset.`);
+      }
+    }
+
+    function togglePendingDrawer(open) {
+      const drawer = document.getElementById('pendingDrawer');
+      if (open) {
+        populatePendingList();
+        drawer.classList.remove('hidden');
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function populatePendingList() {
+      const container = document.getElementById('pendingListContainer');
+      container.innerHTML = '';
+
+      const pendingEntities = queueData.map((e, idx) => ({ ...e, originalIndex: idx })).filter(e => e.status === 'Pending');
+      document.getElementById('pendingDrawerCount').textContent = `${pendingEntities.length} Pending`;
+
+      if (pendingEntities.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">All entities completed!</div>`;
+        return;
+      }
+
+      pendingEntities.forEach(item => {
+        const div = document.createElement('div');
+        div.className = `p-3 rounded-lg border text-xs cursor-pointer transition flex justify-between items-center ${item.originalIndex === currentIndex ? 'bg-blue-50 border-blue-300' : 'bg-white border-slate-200 hover:bg-slate-50'}`;
+        div.onclick = () => {
+          saveActiveInputFields();
+          currentIndex = item.originalIndex;
+          renderEntity();
+          togglePendingDrawer(false);
+          scrollToTop();
+        };
+
+        div.innerHTML = `
+          <div>
+            <p class="font-bold text-slate-800">${item.name}</p>
+            <p class="font-mono text-[10px] text-blue-600 font-semibold mt-0.5">ID: ${item.id}</p>
+          </div>
+          <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+            Row ${item.originalIndex + 1}
+          </span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
     function copyEntityId() {
       const idText = document.getElementById('entityIdText').textContent;
       navigator.clipboard.writeText(idText).then(() => {
@@ -522,6 +632,10 @@
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 1500);
       });
+    }
+
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     /**
@@ -565,12 +679,47 @@
       return parts.some(p => p !== first);
     }
 
-    function linkifyText(text) {
+    /**
+     * Parses error value text, formats URLs into list with hyperlinks, and flags duplicates
+     */
+    function formatErrorValueContent(text) {
       const urlRegex = /(https?:\/\/[^\s"',\]]+)/g;
-      return text.replace(urlRegex, function(url) {
-        const cleanUrl = url.replace(/\\+$/, '');
-        return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-semibold underline hover:text-blue-800 break-all">${cleanUrl}</a>`;
+      const foundUrls = text.match(urlRegex) || [];
+
+      if (foundUrls.length === 0) {
+        return `<div class="font-mono text-xs text-slate-600 break-all">${text}</div>`;
+      }
+
+      const cleanUrls = foundUrls.map(u => u.replace(/\\+$/, ''));
+      const uniqueUrlsSet = new Set();
+      const duplicateUrlsSet = new Set();
+
+      cleanUrls.forEach(url => {
+        if (uniqueUrlsSet.has(url)) {
+          duplicateUrlsSet.add(url);
+        } else {
+          uniqueUrlsSet.add(url);
+        }
       });
+
+      let listHtml = `<ul class="list-disc list-inside space-y-1 mt-1">`;
+      cleanUrls.forEach(url => {
+        const isDuplicate = duplicateUrlsSet.has(url);
+        listHtml += `
+          <li class="font-mono text-xs break-all">
+            <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-semibold underline hover:text-blue-800">${url}</a>
+            ${isDuplicate ? `<span class="ml-1.5 inline-block px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded">Duplicate URL</span>` : ''}
+          </li>
+        `;
+      });
+      listHtml += `</ul>`;
+
+      let nonUrlText = text.replace(urlRegex, '').trim();
+      if (nonUrlText) {
+        return `<div class="font-mono text-xs text-slate-600 break-all mb-1">${nonUrlText}</div>${listHtml}`;
+      }
+
+      return listHtml;
     }
 
     function renderEntity() {
@@ -606,6 +755,7 @@
 
       document.getElementById('remarks').value = entity.remarks || '';
       document.getElementById('siteDownList').value = entity.siteDownList || '';
+      document.getElementById('wrongHarvesterDetails').value = entity.wrongHarvesterDetails || '';
 
       const m = entity.metrics || {};
       document.getElementById('m_urlsChecked').value = m.urlsChecked || '';
@@ -623,14 +773,14 @@
         tbody.innerHTML = `<tr><td colspan="3" class="py-4 px-4 text-center text-slate-400">No source errors recorded.</td></tr>`;
       } else {
         entity.errors.forEach((err) => {
-          const formattedValue = linkifyText(err.value);
+          const formattedValue = formatErrorValueContent(err.value);
           const actionInfo = determineActionRequired(err.source, err.value);
 
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-50";
           tr.innerHTML = `
             <td class="py-3.5 px-4 font-semibold text-slate-800">${err.source}</td>
-            <td class="py-3.5 px-4 font-mono text-xs text-slate-600 break-all">${formattedValue}</td>
+            <td class="py-3.5 px-4">${formattedValue}</td>
             <td class="py-3.5 px-4 text-right">
               <span class="inline-block px-3 py-1 text-xs rounded-lg border ${actionInfo.style}">
                 ${actionInfo.text}
@@ -650,6 +800,7 @@
 
       queueData[currentIndex].remarks = document.getElementById('remarks').value;
       queueData[currentIndex].siteDownList = document.getElementById('siteDownList').value;
+      queueData[currentIndex].wrongHarvesterDetails = document.getElementById('wrongHarvesterDetails').value;
 
       queueData[currentIndex].metrics = {
         urlsChecked: Number(document.getElementById('m_urlsChecked').value) || 0,
@@ -720,9 +871,11 @@
       if (currentIndex < queueData.length - 1) {
         currentIndex++;
         renderEntity();
+        scrollToTop();
       } else {
         alert('You have reached the end of the queue!');
         renderEntity();
+        scrollToTop();
       }
     }
 
@@ -734,6 +887,7 @@
       if (target >= 0 && target < queueData.length) {
         currentIndex = target;
         renderEntity();
+        scrollToTop();
       }
     }
 
@@ -825,6 +979,7 @@
           'URL Already Configured in Another Duplicate Entity': m.urlInDupEntity || 0,
           'URL Already Configured in Another Wrong Entity': m.urlInWrongEntity || 0,
           'Site Down List': e.siteDownList || '',
+          'Wrong Harvester Details': e.wrongHarvesterDetails || '',
           'Remarks': e.remarks || '',
           'Error Count': e.errors.length
         };

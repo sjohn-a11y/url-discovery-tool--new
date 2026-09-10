@@ -148,40 +148,44 @@
   <main id="mainWorkspace" class="hidden max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
 
     <!-- Top KPI Cards Section with Pace Tracker -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="card-box p-4 text-center shadow-sm">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div class="card-box p-3 text-center shadow-sm">
         <p class="text-xs font-medium text-slate-500">Total Entities</p>
         <p id="kpiTotalEntities" class="text-xl font-bold text-blue-600 mt-1">0</p>
       </div>
-      <div class="card-box p-4 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Completed</p>
-        <p id="kpiCompleted" class="text-xl font-bold text-emerald-600 mt-1">0</p>
+      <div class="card-box p-3 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Not Started</p>
+        <p id="kpiNotStarted" class="text-xl font-bold text-slate-600 mt-1">0</p>
       </div>
-      <div class="card-box p-4 text-center shadow-sm">
+      <div class="card-box p-3 text-center shadow-sm">
         <p class="text-xs font-medium text-slate-500">Pending</p>
         <p id="kpiPending" class="text-xl font-bold text-amber-600 mt-1">0</p>
       </div>
-      <div class="card-box p-4 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Total URLs Verified</p>
+      <div class="card-box p-3 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">Completed</p>
+        <p id="kpiCompleted" class="text-xl font-bold text-emerald-600 mt-1">0</p>
+      </div>
+      <div class="card-box p-3 text-center shadow-sm">
+        <p class="text-xs font-medium text-slate-500">URLs Verified</p>
         <p id="kpiUrlsVerified" class="text-xl font-bold text-blue-600 mt-1">0</p>
       </div>
       
       <!-- Live Hourly Pace Tracker Card -->
-      <div class="card-box p-4 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
+      <div class="card-box p-3 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">URL Pace Tracker</span>
+            <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">URL Pace Tracker</span>
             <button onclick="resetPaceTimer()" title="Reset Session Timer" class="text-slate-400 hover:text-white text-xs">
               <i class="fa-solid fa-rotate-right"></i>
             </button>
           </div>
-          <div class="flex items-baseline justify-center gap-1 mt-1">
-            <span id="kpiHourlyPace" class="text-2xl font-black text-amber-400">0</span>
-            <span class="text-xs font-medium text-slate-300">URLs/hr</span>
+          <div class="flex items-baseline justify-center gap-1 mt-0.5">
+            <span id="kpiHourlyPace" class="text-xl font-black text-amber-400">0</span>
+            <span class="text-[10px] font-medium text-slate-300">URLs/hr</span>
           </div>
         </div>
-        <div class="mt-2">
-          <span id="paceStatusBadge" class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-700 text-slate-300">
+        <div class="mt-1">
+          <span id="paceStatusBadge" class="inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300">
             Target: 1,000/day
           </span>
         </div>
@@ -534,7 +538,7 @@
           entityType: entityType,
           npi: npi,
           errors: errors,
-          status: 'Pending',
+          status: 'Not Started', // Defaults to "Not Started"
           remarks: '',
           siteDownList: '',
           wrongHarvesterDetails: '',
@@ -597,7 +601,7 @@
       document.getElementById('pendingDrawerCount').textContent = `${pendingEntities.length} Pending`;
 
       if (pendingEntities.length === 0) {
-        container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">All entities completed!</div>`;
+        container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">No pending entities found.</div>`;
         return;
       }
 
@@ -924,8 +928,9 @@
 
     function updateKPIs() {
       document.getElementById('kpiTotalEntities').textContent = queueData.length;
-      document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
+      document.getElementById('kpiNotStarted').textContent = queueData.filter(e => e.status === 'Not Started').length;
       document.getElementById('kpiPending').textContent = queueData.filter(e => e.status === 'Pending').length;
+      document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
 
       const totalUrlsChecked = calculateTotalUrlsChecked();
       document.getElementById('kpiUrlsVerified').textContent = totalUrlsChecked;
@@ -942,13 +947,13 @@
 
       const badge = document.getElementById('paceStatusBadge');
       if (pace >= 140) {
-        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500 text-white";
+        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500 text-white";
         badge.textContent = `Ahead (${pace} URLs/hr)`;
       } else if (pace >= 80) {
-        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-white";
+        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-500 text-white";
         badge.textContent = `On Pace (${pace} URLs/hr)`;
       } else {
-        badge.className = "inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-700 text-slate-300";
+        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300";
         badge.textContent = `Target: 1,000/day`;
       }
     }

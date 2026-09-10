@@ -162,12 +162,17 @@
     <!-- Main Entity Workspace Card -->
     <div id="entityCard" class="hidden card-box p-8 shadow-sm space-y-6">
       
+      <!-- Entity Name & Plain Text Copyable Entity ID -->
       <div>
         <h2 id="entityTitle" class="text-2xl font-bold text-slate-900">Entity Name</h2>
-        <a id="entityIdLink" href="#" target="_blank" rel="noopener noreferrer" class="text-base font-semibold text-blue-600 hover:underline mt-1 inline-flex items-center gap-1.5" title="Open in EV Tool">
-          <span id="entityIdText">0000000</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
-        </a>
+        <div class="mt-1.5 inline-flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Entity ID:</span>
+          <span id="entityIdText" class="text-base font-bold font-mono text-slate-800 select-all">0000000</span>
+          <button onclick="copyEntityId()" title="Copy Entity ID" class="text-slate-500 hover:text-blue-600 text-xs ml-1 transition flex items-center gap-1">
+            <i class="fa-regular fa-copy"></i>
+            <span id="copyToast" class="hidden text-[10px] font-bold text-emerald-600">Copied!</span>
+          </button>
+        </div>
       </div>
 
       <!-- Metadata Box Grid -->
@@ -427,7 +432,25 @@
 
     function parseWorkbook(rows) {
       queueData = rows.map((row, idx) => {
-        const entityId = row['Entity ID'] || `Row-${idx+1}`;
+        const possibleKeys = ['Entity ID', 'EntityID', 'entity_id', 'Entity Id', 'entity id', 'ID', 'Entity_ID'];
+        let rawEntityId = null;
+
+        for (const key of possibleKeys) {
+          if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+            rawEntityId = row[key];
+            break;
+          }
+        }
+
+        let entityId = `Row ${idx + 1}`;
+        if (rawEntityId !== null) {
+          if (typeof rawEntityId === 'number') {
+            entityId = String(Math.floor(rawEntityId));
+          } else {
+            entityId = String(rawEntityId).trim();
+          }
+        }
+
         let payloadObj = {};
         try {
           payloadObj = JSON.parse(row['Payload'] || '{}');
@@ -437,8 +460,8 @@
         const client = row['Client Name'] || 'N/A';
         const syncType = row['Sync Partner'] || 'Listings, noSync';
         const products = row['Client Products'] || 'DataManager, Listings, Reputation';
-        const industry = row['Industry ID'] || 'healthcare, healthcare';
-        const entityType = row['Entity Type'] || 'Person, Person';
+        const industry = row['Industry ID'] || 'healthcare';
+        const entityType = row['Entity Type'] || 'Person';
         
         let npi = 'N/A';
         if (row['Code'] !== undefined && row['Code'] !== null && row['Code'] !== '') {
@@ -490,6 +513,15 @@
       autoSaveRuntimeState();
       updateKPIs();
       renderEntity();
+    }
+
+    function copyEntityId() {
+      const idText = document.getElementById('entityIdText').textContent;
+      navigator.clipboard.writeText(idText).then(() => {
+        const toast = document.getElementById('copyToast');
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 1500);
+      });
     }
 
     /**
@@ -550,10 +582,7 @@
       document.getElementById('totalIdx').textContent = queueData.length;
 
       document.getElementById('entityTitle').textContent = entity.name;
-      
-      const evUrl = `https://crawler-admin.consumerism.pressganey.com/#/verify-sources/${entity.id}`;
       document.getElementById('entityIdText').textContent = entity.id;
-      document.getElementById('entityIdLink').href = evUrl;
 
       document.getElementById('metaClient').textContent = entity.client;
       document.getElementById('metaSync').textContent = entity.syncType;

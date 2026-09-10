@@ -639,11 +639,18 @@
     }
 
     /**
-     * Strict Binary Action Logic: "No Action Required" vs "Action Required"
+     * Strict Binary Action Logic with Non-Healthcare Focus Filter
      */
-    function determineActionRequired(source, value) {
+    function determineActionRequired(source, value, industry) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
+      const indLower = (industry || '').toLowerCase();
+
+      // Rule 0: Non-Healthcare clients focus strictly on Google and Yelp
+      const isHealthcare = indLower.includes('healthcare');
+      if (!isHealthcare && (srcLower === 'facebook' || srcLower === 'facebook reviews' || srcLower === 'yellowpages')) {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
 
       // Rule 1: Bing source
       if (srcLower === 'bing') {
@@ -774,7 +781,7 @@
       } else {
         entity.errors.forEach((err) => {
           const formattedValue = formatErrorValueContent(err.value);
-          const actionInfo = determineActionRequired(err.source, err.value);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry);
 
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-50";

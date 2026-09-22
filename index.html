@@ -268,7 +268,6 @@
         <table class="w-full text-left text-sm text-slate-700">
           <thead class="bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-200">
             <tr>
-              <!-- Added Number (#) Column Here -->
               <th class="py-3 px-4 w-10 text-center">#</th>
               <th class="py-3 px-4 w-1/6">Source</th>
               <th class="py-3 px-4 w-1/2">Value</th>
@@ -651,11 +650,18 @@
 
     /**
      * Strict Binary Action Logic with Non-Healthcare Focus Filter
+     * Rule Exception Update: Healthcare + Employee combination does not trigger Action Required
      */
     function determineActionRequired(source, value, industry) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       const indLower = (industry || '').toLowerCase();
+
+      // Rule Exception: Healthcare + Employee combined tag -> No Action Required
+      const isHealthcareAndEmployee = indLower.includes('healthcare') && indLower.includes('employee');
+      if (isHealthcareAndEmployee) {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
 
       // Rule 0: Non-Healthcare clients focus strictly on Google and Yelp
       const isHealthcare = indLower.includes('healthcare');

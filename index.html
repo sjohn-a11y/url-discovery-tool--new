@@ -242,7 +242,7 @@
           <div id="metaIndustryContainer" class="mt-0.5">
             <p id="metaIndustry" class="text-sm font-bold text-slate-800">-</p>
             <p id="metaIndustryNotice" class="hidden text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-              <i class="fa-solid fa-triangle-exclamation"></i> No action required for this entity
+              <i class="fa-solid fa-triangle-exclamation"></i> Multiple industries detected (Healthcare Exception)
             </p>
           </div>
         </div>
@@ -650,7 +650,7 @@
 
     /**
      * Strict Binary Action Logic with Non-Healthcare Focus Filter
-     * Rule Exception Update: Healthcare + Employee combination requires action
+     * Healthcare + Employee combination IS ACTIONABLE (Action Required)
      */
     function determineActionRequired(source, value, industry) {
       const srcLower = (source || '').toLowerCase();

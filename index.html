@@ -242,7 +242,7 @@
           <div id="metaIndustryContainer" class="mt-0.5">
             <p id="metaIndustry" class="text-sm font-bold text-slate-800">-</p>
             <p id="metaIndustryNotice" class="hidden text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-              <i class="fa-solid fa-triangle-exclamation"></i> Multiple industries detected (Healthcare Exception)
+              <i class="fa-solid fa-triangle-exclamation"></i> <span id="metaIndustryNoticeText">No action required for this entity</span>
             </p>
           </div>
         </div>
@@ -649,22 +649,53 @@
     }
 
     /**
-     * Strict Binary Action Logic with Non-Healthcare Focus Filter
-     * Healthcare + Employee combination IS ACTIONABLE (Action Required)
+     * Helper to classify Industry List:
+     * Returns:
+     * - 'SAME_INDUSTRY' (e.g. healthcare, healthcare OR retail, retail)
+     * - 'HEALTHCARE_EMPLOYEE_ONLY' (strictly healthcare and employee, no other industries)
+     * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination)
+     */
+    function analyzeIndustryCombination(industryStr) {
+      if (!industryStr || industryStr === '-') return 'SAME_INDUSTRY';
+      
+      const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (parts.length <= 1) return 'SAME_INDUSTRY';
+
+      // Check if all elements are identical (Rule 1: Same Industry)
+      const first = parts[0];
+      const isAllSame = parts.every(p => p === first);
+      if (isAllSame) return 'SAME_INDUSTRY';
+
+      // Check if it's strictly healthcare + employee ONLY (Rule 3)
+      const uniqueTags = new Set(parts);
+      const hasHealthcare = uniqueTags.has('healthcare');
+      const hasEmployee = uniqueTags.has('employee');
+
+      if (hasHealthcare && hasEmployee && uniqueTags.size === 2) {
+        return 'HEALTHCARE_EMPLOYEE_ONLY';
+      }
+
+      // Rule 2 & 4: Different industry OR healthcare+employee+other
+      return 'DIFFERENT_INDUSTRY';
+    }
+
+    /**
+     * Evaluates source row action requirement based on your 4 precise Industry Rules
      */
     function determineActionRequired(source, value, industry) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       
-      // Parse multi-industry values safely
-      const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
-      const isHealthcare = indList.includes('healthcare');
-      const isEmployeeOnly = indList.includes('employee') && !isHealthcare;
+      const indCategory = analyzeIndustryCombination(industry);
 
-      // Rule Exception: Pure Employee Industry without Healthcare -> No Action Required
-      if (isEmployeeOnly) {
+      // Rule 2 & Rule 4: Different Industry (or Healthcare + Employee + Retail/Other) -> No Action Required
+      if (indCategory === 'DIFFERENT_INDUSTRY') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
+
+      // At this point: Either SAME_INDUSTRY (Rule 1) OR HEALTHCARE_EMPLOYEE_ONLY (Rule 3) -> Action Required
+      const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
+      const isHealthcare = indList.includes('healthcare');
 
       // Rule 0: Non-Healthcare clients focus strictly on Google and Yelp
       if (!isHealthcare && (srcLower === 'facebook' || srcLower === 'facebook reviews' || srcLower === 'yellowpages')) {
@@ -691,18 +722,12 @@
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Default fallback for all actionable cases
+      // Default fallback for actionable cases
       return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
     function isMultipleIndustries(industryStr) {
-      if (!industryStr || industryStr === '-') return false;
-      
-      const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-      if (parts.length <= 1) return false;
-
-      const first = parts[0];
-      return parts.some(p => p !== first);
+      return analyzeIndustryCombination(industryStr) !== 'SAME_INDUSTRY';
     }
 
     /**
@@ -774,13 +799,21 @@
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
       
-      // Industry Highlight Check
+      // Industry Highlight & Message Check
       const indEl = document.getElementById('metaIndustry');
       const indNotice = document.getElementById('metaIndustryNotice');
+      const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
 
-      if (isMultipleIndustries(entity.industry)) {
+      const indCategory = analyzeIndustryCombination(entity.industry);
+
+      if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
         indEl.className = "text-sm font-extrabold text-rose-600";
+        indNoticeText.textContent = "Multiple industries detected (Healthcare Exception)";
+        indNotice.classList.remove('hidden');
+      } else if (indCategory === 'DIFFERENT_INDUSTRY') {
+        indEl.className = "text-sm font-extrabold text-rose-600";
+        indNoticeText.textContent = "No action required for this entity";
         indNotice.classList.remove('hidden');
       } else {
         indEl.className = "text-sm font-bold text-slate-800";

@@ -241,8 +241,9 @@
           <p class="text-xs text-slate-400 font-medium">Industry</p>
           <div id="metaIndustryContainer" class="mt-0.5">
             <p id="metaIndustry" class="text-sm font-bold text-slate-800">-</p>
-            <p id="metaIndustryNotice" class="hidden text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
-              <i class="fa-solid fa-triangle-exclamation"></i> <span id="metaIndustryNoticeText">No action required for this entity</span>
+            <p id="metaIndustryNotice" class="hidden text-[11px] font-bold mt-1 flex items-center gap-1">
+              <i id="metaIndustryNoticeIcon" class="fa-solid fa-triangle-exclamation"></i>
+              <span id="metaIndustryNoticeText">No action required for this entity</span>
             </p>
           </div>
         </div>
@@ -819,25 +820,32 @@
       document.getElementById('metaSync').textContent = entity.syncType;
       document.getElementById('metaProducts').textContent = entity.products;
       
-      // Industry Highlight & Message Check
+      // Industry Highlight & Alert Message Styling
       const indEl = document.getElementById('metaIndustry');
       const indNotice = document.getElementById('metaIndustryNotice');
+      const indNoticeIcon = document.getElementById('metaIndustryNoticeIcon');
       const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
 
       const indCategory = analyzeIndustryCombination(entity.industry, entity.clientId);
 
       if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
-        indEl.className = "text-sm font-extrabold text-rose-600";
+        indEl.className = "text-sm font-bold text-slate-800";
         indNoticeText.textContent = "Multiple industries detected (Healthcare Exception)";
+        indNotice.className = "text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1";
+        indNoticeIcon.className = "fa-solid fa-circle-info";
         indNotice.classList.remove('hidden');
       } else if (indCategory === 'RTGLOBAL_ACTIONABLE') {
-        indEl.className = "text-sm font-extrabold text-rose-600";
+        indEl.className = "text-sm font-bold text-slate-800";
         indNoticeText.textContent = "rtglobal Client: Action Required (Healthcare)";
+        indNotice.className = "text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1";
+        indNoticeIcon.className = "fa-solid fa-circle-info";
         indNotice.classList.remove('hidden');
       } else if (indCategory === 'DIFFERENT_INDUSTRY') {
         indEl.className = "text-sm font-extrabold text-rose-600";
         indNoticeText.textContent = "No action required for this entity";
+        indNotice.className = "text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1";
+        indNoticeIcon.className = "fa-solid fa-triangle-exclamation";
         indNotice.classList.remove('hidden');
       } else {
         indEl.className = "text-sm font-bold text-slate-800";

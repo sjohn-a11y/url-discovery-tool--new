@@ -552,7 +552,7 @@
           siteDownList: '',
           wrongHarvesterDetails: '',
           metrics: {
-            urlsChecked: 0,
+            urlsChecked: null, // Initially null to allow auto-population on load
             urlsNewlyConfigured: 0,
             dupUrlsFetched: 0,
             wrongUrlsFetched: 0,
@@ -701,11 +701,12 @@
     }
 
     /**
-     * Evaluates source row action requirement based on Industry and Client ID Rules
+     * Evaluates source row action requirement based on Industry, Client ID, and Sync Partner Rules
      */
-    function determineActionRequired(source, value, industry, clientId) {
+    function determineActionRequired(source, value, industry, clientId, syncType) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
+      const syncLower = (syncType || '').toLowerCase();
       
       const indCategory = analyzeIndustryCombination(industry, clientId);
 
@@ -717,6 +718,14 @@
       // At this point: SAME_INDUSTRY, HEALTHCARE_EMPLOYEE_ONLY, or RTGLOBAL_ACTIONABLE -> Action Required
       const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
       const isHealthcare = indList.includes('healthcare');
+      const isRetail = indList.includes('retail');
+
+      // NEW RULE: If Sync Type contains LX and Industry contains Retail -> YellowPages, Facebook & Facebook Reviews are No Action Required
+      if (syncLower.includes('lx') && isRetail) {
+        if (srcLower === 'yellowpages' || srcLower === 'facebook' || srcLower === 'facebook reviews') {
+          return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        }
+      }
 
       // Rule 0: Non-Healthcare clients focus strictly on Google and Yelp
       if (!isHealthcare && (srcLower === 'facebook' || srcLower === 'facebook reviews' || srcLower === 'yellowpages')) {
@@ -859,24 +868,20 @@
       document.getElementById('siteDownList').value = entity.siteDownList || '';
       document.getElementById('wrongHarvesterDetails').value = entity.wrongHarvesterDetails || '';
 
-      const m = entity.metrics || {};
-      document.getElementById('m_urlsChecked').value = m.urlsChecked || '';
-      document.getElementById('m_urlsNewlyConfigured').value = m.urlsNewlyConfigured || '';
-      document.getElementById('m_dupUrlsFetched').value = m.dupUrlsFetched || '';
-      document.getElementById('m_wrongUrlsFetched').value = m.wrongUrlsFetched || '';
-      document.getElementById('m_urlsDeleted').value = m.urlsDeleted || '';
-      document.getElementById('m_urlInDupEntity').value = m.urlInDupEntity || '';
-      document.getElementById('m_urlInWrongEntity').value = m.urlInWrongEntity || '';
-
       const tbody = document.getElementById('errorTableBody');
       tbody.innerHTML = '';
+
+      let actionableCount = 0;
 
       if (entity.errors.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="py-4 px-4 text-center text-slate-400">No source errors recorded.</td></tr>`;
       } else {
         // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
-          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType);
+          if (actionInfo.text === 'Action Required') {
+            actionableCount++;
+          }
           return { ...err, actionInfo };
         });
 
@@ -907,8 +912,24 @@
         });
       }
 
+      // Auto-populate "URLs checked" if not manually set by analyst
+      if (entity.metrics.urlsChecked === null || entity.metrics.urlsChecked === undefined) {
+        entity.metrics.urlsChecked = actionableCount;
+      }
+
+      const m = entity.metrics || {};
+      document.getElementById('m_urlsChecked').value = m.urlsChecked !== null ? m.urlsChecked : '';
+      document.getElementById('m_urlsNewlyConfigured').value = m.urlsNewlyConfigured || '';
+      document.getElementById('m_dupUrlsFetched').value = m.dupUrlsFetched || '';
+      document.getElementById('m_wrongUrlsFetched').value = m.wrongUrlsFetched || '';
+      document.getElementById('m_urlsDeleted').value = m.urlsDeleted || '';
+      document.getElementById('m_urlInDupEntity').value = m.urlInDupEntity || '';
+      document.getElementById('m_urlInWrongEntity').value = m.urlInWrongEntity || '';
+
       document.getElementById('btnPrev').disabled = (currentIndex === 0);
       document.getElementById('btnNext').disabled = (currentIndex === queueData.length - 1);
+
+      updateKPIs();
     }
 
     function saveActiveInputFields() {
@@ -918,8 +939,10 @@
       queueData[currentIndex].siteDownList = document.getElementById('siteDownList').value;
       queueData[currentIndex].wrongHarvesterDetails = document.getElementById('wrongHarvesterDetails').value;
 
+      const rawUrlsChecked = document.getElementById('m_urlsChecked').value;
+
       queueData[currentIndex].metrics = {
-        urlsChecked: Number(document.getElementById('m_urlsChecked').value) || 0,
+        urlsChecked: rawUrlsChecked !== '' ? Number(rawUrlsChecked) : 0,
         urlsNewlyConfigured: Number(document.getElementById('m_urlsNewlyConfigured').value) || 0,
         dupUrlsFetched: Number(document.getElementById('m_dupUrlsFetched').value) || 0,
         wrongUrlsFetched: Number(document.getElementById('m_wrongUrlsFetched').value) || 0,
@@ -1014,7 +1037,7 @@
 
     function calculateTotalUrlsChecked() {
       return queueData.reduce((sum, item) => {
-        const count = item.metrics && item.metrics.urlsChecked ? Number(item.metrics.urlsChecked) : 0;
+        const count = item.metrics && item.metrics.urlsChecked !== null && item.metrics.urlsChecked !== undefined ? Number(item.metrics.urlsChecked) : 0;
         return sum + (isNaN(count) ? 0 : count);
       }, 0);
     }

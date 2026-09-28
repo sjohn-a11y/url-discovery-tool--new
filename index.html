@@ -653,13 +653,29 @@
      * Returns:
      * - 'SAME_INDUSTRY' (e.g. healthcare, healthcare OR retail, retail)
      * - 'HEALTHCARE_EMPLOYEE_ONLY' (strictly healthcare and employee, no other industries)
-     * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination)
+     * - 'RTGLOBAL_ACTIONABLE' (rtglobal + healthcare with <= 2 distinct industries)
+     * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination or rtglobal with > 2 distinct industries)
      */
-    function analyzeIndustryCombination(industryStr) {
+    function analyzeIndustryCombination(industryStr, clientStr) {
       if (!industryStr || industryStr === '-') return 'SAME_INDUSTRY';
       
       const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       if (parts.length <= 1) return 'SAME_INDUSTRY';
+
+      const uniqueTags = new Set(parts);
+      const isRtGlobal = (clientStr || '').toLowerCase().includes('rtglobal');
+
+      // Special rtglobal Condition Check
+      if (isRtGlobal) {
+        const hasHealthcare = uniqueTags.has('healthcare');
+        if (hasHealthcare) {
+          // If there are more than 2 distinct industry values, consider as No Action Required
+          if (uniqueTags.size > 2) {
+            return 'DIFFERENT_INDUSTRY';
+          }
+          return 'RTGLOBAL_ACTIONABLE';
+        }
+      }
 
       // Check if all elements are identical (Rule 1: Same Industry)
       const first = parts[0];
@@ -667,7 +683,6 @@
       if (isAllSame) return 'SAME_INDUSTRY';
 
       // Check if it's strictly healthcare + employee ONLY (Rule 3)
-      const uniqueTags = new Set(parts);
       const hasHealthcare = uniqueTags.has('healthcare');
       const hasEmployee = uniqueTags.has('employee');
 
@@ -680,20 +695,20 @@
     }
 
     /**
-     * Evaluates source row action requirement based on your 4 precise Industry Rules
+     * Evaluates source row action requirement based on Industry and Client Rules
      */
-    function determineActionRequired(source, value, industry) {
+    function determineActionRequired(source, value, industry, client) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       
-      const indCategory = analyzeIndustryCombination(industry);
+      const indCategory = analyzeIndustryCombination(industry, client);
 
-      // Rule 2 & Rule 4: Different Industry (or Healthcare + Employee + Retail/Other) -> No Action Required
+      // Rule 2 & Rule 4: Different Industry (or Healthcare + Employee + Retail/Other, or rtglobal with > 2 industries) -> No Action Required
       if (indCategory === 'DIFFERENT_INDUSTRY') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // At this point: Either SAME_INDUSTRY (Rule 1) OR HEALTHCARE_EMPLOYEE_ONLY (Rule 3) -> Action Required
+      // At this point: SAME_INDUSTRY, HEALTHCARE_EMPLOYEE_ONLY, or RTGLOBAL_ACTIONABLE -> Action Required
       const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
       const isHealthcare = indList.includes('healthcare');
 
@@ -726,8 +741,8 @@
       return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
-    function isMultipleIndustries(industryStr) {
-      return analyzeIndustryCombination(industryStr) !== 'SAME_INDUSTRY';
+    function isMultipleIndustries(industryStr, clientStr) {
+      return analyzeIndustryCombination(industryStr, clientStr) !== 'SAME_INDUSTRY';
     }
 
     /**
@@ -805,11 +820,15 @@
       const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
 
-      const indCategory = analyzeIndustryCombination(entity.industry);
+      const indCategory = analyzeIndustryCombination(entity.industry, entity.client);
 
       if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
         indEl.className = "text-sm font-extrabold text-rose-600";
         indNoticeText.textContent = "Multiple industries detected (Healthcare Exception)";
+        indNotice.classList.remove('hidden');
+      } else if (indCategory === 'RTGLOBAL_ACTIONABLE') {
+        indEl.className = "text-sm font-extrabold text-rose-600";
+        indNoticeText.textContent = "rtglobal Client: Action Required (Healthcare)";
         indNotice.classList.remove('hidden');
       } else if (indCategory === 'DIFFERENT_INDUSTRY') {
         indEl.className = "text-sm font-extrabold text-rose-600";
@@ -844,7 +863,7 @@
       } else {
         // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
-          const actionInfo = determineActionRequired(err.source, err.value, entity.industry);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.client);
           return { ...err, actionInfo };
         });
 

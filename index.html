@@ -516,6 +516,7 @@
 
         const entityName = payloadObj.name || row['Client Name'] || 'N/A';
         const client = row['Client Name'] || 'N/A';
+        const clientId = row['Client ID'] || row['Client_ID'] || row['client_id'] || row['Client Name'] || 'N/A';
         const syncType = row['Sync Partner'] || 'Listings, noSync';
         const products = row['Client Products'] || 'DataManager, Listings, Reputation';
         const industry = row['Industry ID'] || 'healthcare';
@@ -538,6 +539,7 @@
           id: entityId,
           name: entityName,
           client: client,
+          clientId: clientId,
           syncType: syncType,
           products: products,
           industry: industry,
@@ -656,14 +658,17 @@
      * - 'RTGLOBAL_ACTIONABLE' (rtglobal + healthcare with <= 2 distinct industries)
      * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination or rtglobal with > 2 distinct industries)
      */
-    function analyzeIndustryCombination(industryStr, clientStr) {
+    function analyzeIndustryCombination(industryStr, clientIdStr) {
       if (!industryStr || industryStr === '-') return 'SAME_INDUSTRY';
       
       const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
       if (parts.length <= 1) return 'SAME_INDUSTRY';
 
       const uniqueTags = new Set(parts);
-      const isRtGlobal = (clientStr || '').toLowerCase().includes('rtglobal');
+      const clientIdLower = (clientIdStr || '').toLowerCase();
+      
+      // Strictly checks the Client ID column for "rtglobal"
+      const isRtGlobal = clientIdLower.includes('rtglobal');
 
       // Special rtglobal Condition Check
       if (isRtGlobal) {
@@ -695,13 +700,13 @@
     }
 
     /**
-     * Evaluates source row action requirement based on Industry and Client Rules
+     * Evaluates source row action requirement based on Industry and Client ID Rules
      */
-    function determineActionRequired(source, value, industry, client) {
+    function determineActionRequired(source, value, industry, clientId) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       
-      const indCategory = analyzeIndustryCombination(industry, client);
+      const indCategory = analyzeIndustryCombination(industry, clientId);
 
       // Rule 2 & Rule 4: Different Industry (or Healthcare + Employee + Retail/Other, or rtglobal with > 2 industries) -> No Action Required
       if (indCategory === 'DIFFERENT_INDUSTRY') {
@@ -741,8 +746,8 @@
       return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
-    function isMultipleIndustries(industryStr, clientStr) {
-      return analyzeIndustryCombination(industryStr, clientStr) !== 'SAME_INDUSTRY';
+    function isMultipleIndustries(industryStr, clientIdStr) {
+      return analyzeIndustryCombination(industryStr, clientIdStr) !== 'SAME_INDUSTRY';
     }
 
     /**
@@ -820,7 +825,7 @@
       const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
 
-      const indCategory = analyzeIndustryCombination(entity.industry, entity.client);
+      const indCategory = analyzeIndustryCombination(entity.industry, entity.clientId);
 
       if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
         indEl.className = "text-sm font-extrabold text-rose-600";
@@ -863,7 +868,7 @@
       } else {
         // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
-          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.client);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId);
           return { ...err, actionInfo };
         });
 
@@ -1072,6 +1077,7 @@
           'Entity Name': e.name,
           'NPI Number (Code)': e.npi,
           'Client': e.client,
+          'Client ID': e.clientId,
           'Sync Partner': e.syncType,
           'Industry': e.industry,
           'Status': e.status,

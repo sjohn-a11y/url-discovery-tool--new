@@ -719,46 +719,49 @@
       const valLower = (value || '').toLowerCase();
       const syncLower = (syncType || '').toLowerCase();
       
-      const indCategory = analyzeIndustryCombination(industry, clientId);
-
-      // Rule 2 & Rule 4: Different Industry (or Healthcare + Employee + Retail/Other, or rtglobal with > 2 industries) -> No Action Required
-      if (indCategory === 'DIFFERENT_INDUSTRY') {
-        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
-      }
-
-      // At this point: SAME_INDUSTRY, HEALTHCARE_EMPLOYEE_ONLY, or RTGLOBAL_ACTIONABLE -> Action Required
       const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
       const isHealthcare = indList.includes('healthcare');
       const isRetail = indList.includes('retail');
 
-      // RULE: If Sync Type contains LX and Industry contains Retail -> YellowPages, Facebook & Facebook Reviews are No Action Required
+      // 1. Check LX + Retail Exception rule first
       if (syncLower.includes('lx') && isRetail) {
         if (srcLower === 'yellowpages' || srcLower === 'facebook' || srcLower === 'facebook reviews') {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
       }
 
-      // Non-Healthcare industries (Retail, Services, Hospitality, etc.): YellowPages is No Action Required, but Facebook / Google / Yelp remain Actionable
+      // 2. Facebook & Facebook Reviews are always Action Required across ALL industries (Retail, Services, Hospitality, Healthcare, etc.)
+      if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
+        return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
+      }
+
+      // 3. Now check multi-industry / DIFFERENT_INDUSTRY conditions for other sources
+      const indCategory = analyzeIndustryCombination(industry, clientId);
+      if (indCategory === 'DIFFERENT_INDUSTRY') {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
+
+      // 4. Non-Healthcare industries: YellowPages is No Action Required
       if (!isHealthcare && srcLower === 'yellowpages') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 1: Bing source
+      // 5. Bing source is always No Action Required
       if (srcLower === 'bing') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 2: Message contains "invalid input"
+      // 6. Message contains "invalid input"
       if (valLower.includes('invalid input')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 3: Google statusCode":404
+      // 7. Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Rule 4: Google - Only check if API is provided
+      // 8. Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }

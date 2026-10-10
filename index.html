@@ -719,29 +719,29 @@
       const valLower = (value || '').toLowerCase();
       const syncLower = (syncType || '').toLowerCase();
       
+      // 1. GLOBAL OVERRIDE: If entity is tagged as DIFFERENT_INDUSTRY ("No action required for this entity"), ALL sources are No Action Required
+      const indCategory = analyzeIndustryCombination(industry, clientId);
+      if (indCategory === 'DIFFERENT_INDUSTRY') {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
+
       const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
       const isHealthcare = indList.includes('healthcare');
       const isRetail = indList.includes('retail');
 
-      // 1. Facebook & Facebook Reviews are ALWAYS Action Required across ALL industries (Retail, Healthcare, etc.)
-      if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
-        return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
-      }
-
-      // 2. LX + Retail Exception: Only YellowPages is No Action Required
+      // 2. LX + Retail Exception Rule: YellowPages is No Action Required
       if (syncLower.includes('lx') && isRetail) {
         if (srcLower === 'yellowpages') {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
       }
 
-      // 3. Multi-industry / DIFFERENT_INDUSTRY conditions for other sources
-      const indCategory = analyzeIndustryCombination(industry, clientId);
-      if (indCategory === 'DIFFERENT_INDUSTRY') {
-        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      // 3. Facebook & Facebook Reviews are Action Required across single industries (Retail, Services, Hospitality, Healthcare, etc.)
+      if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
+        return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
-      // 4. Non-Healthcare industries: YellowPages is No Action Required
+      // 4. Non-Healthcare single industries: YellowPages is No Action Required
       if (!isHealthcare && srcLower === 'yellowpages') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }

@@ -738,8 +738,8 @@
         }
       }
 
-      // Rule 0: Non-Healthcare clients focus strictly on Google and Yelp
-      if (!isHealthcare && (srcLower === 'facebook' || srcLower === 'facebook reviews' || srcLower === 'yellowpages')) {
+      // Rule 0: Non-Healthcare clients focus on Google, Yelp, and Facebook (Facebook/Facebook Reviews are actionable across industries)
+      if (!isHealthcare && srcLower === 'yellowpages') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
@@ -1046,10 +1046,14 @@
       updateKPIs();
     }
 
+    // UPDATED: Sum URLs Checked ONLY for entities that are marked as 'Completed'
     function calculateTotalUrlsChecked() {
       return queueData.reduce((sum, item) => {
-        const count = item.metrics && item.metrics.urlsChecked !== null && item.metrics.urlsChecked !== undefined ? Number(item.metrics.urlsChecked) : 0;
-        return sum + (isNaN(count) ? 0 : count);
+        if (item.status === 'Completed') {
+          const count = item.metrics && item.metrics.urlsChecked !== null && item.metrics.urlsChecked !== undefined ? Number(item.metrics.urlsChecked) : 0;
+          return sum + (isNaN(count) ? 0 : count);
+        }
+        return sum;
       }, 0);
     }
 
@@ -1107,12 +1111,15 @@
       return `${dateObj.year}-${dateObj.month}-${dateObj.day}_${dateObj.hour}-${dateObj.minute}-${dateObj.second}`;
     }
 
+    // UPDATED: Metrics export as 0 unless the entity status is 'Completed'
     function exportData() {
       saveActiveInputFields();
       autoSaveRuntimeState();
 
       const exportRows = queueData.map(e => {
         const m = e.metrics || {};
+        const isCompleted = (e.status === 'Completed');
+
         return {
           'Analyst ID': currentUser || 'N/A',
           'Entity ID': e.id,
@@ -1123,13 +1130,13 @@
           'Sync Partner': e.syncType,
           'Industry': e.industry,
           'Status': e.status,
-          'URLs Checked': m.urlsChecked || 0,
-          'No of URLs Newly Configured': m.urlsNewlyConfigured || 0,
-          'Duplicate URLS Fetched (Provided in the file)': m.dupUrlsFetched || 0,
-          'Wrongly URLS Fetched (Provided in the file)': m.wrongUrlsFetched || 0,
-          'No of URLs Deleted': m.urlsDeleted || 0,
-          'URL Already Configured in Another Duplicate Entity': m.urlInDupEntity || 0,
-          'URL Already Configured in Another Wrong Entity': m.urlInWrongEntity || 0,
+          'URLs Checked': isCompleted ? (m.urlsChecked || 0) : 0,
+          'No of URLs Newly Configured': isCompleted ? (m.urlsNewlyConfigured || 0) : 0,
+          'Duplicate URLS Fetched (Provided in the file)': isCompleted ? (m.dupUrlsFetched || 0) : 0,
+          'Wrongly URLS Fetched (Provided in the file)': isCompleted ? (m.wrongUrlsFetched || 0) : 0,
+          'No of URLs Deleted': isCompleted ? (m.urlsDeleted || 0) : 0,
+          'URL Already Configured in Another Duplicate Entity': isCompleted ? (m.urlInDupEntity || 0) : 0,
+          'URL Already Configured in Another Wrong Entity': isCompleted ? (m.urlInWrongEntity || 0) : 0,
           'Site Down List': e.siteDownList || '',
           'Wrong Harvester Details': e.wrongHarvesterDetails || '',
           'Remarks': e.remarks || '',

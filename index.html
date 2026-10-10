@@ -731,14 +731,14 @@
       const isHealthcare = indList.includes('healthcare');
       const isRetail = indList.includes('retail');
 
-      // NEW RULE: If Sync Type contains LX and Industry contains Retail -> YellowPages, Facebook & Facebook Reviews are No Action Required
+      // RULE: If Sync Type contains LX and Industry contains Retail -> YellowPages, Facebook & Facebook Reviews are No Action Required
       if (syncLower.includes('lx') && isRetail) {
         if (srcLower === 'yellowpages' || srcLower === 'facebook' || srcLower === 'facebook reviews') {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
       }
 
-      // Rule 0: Non-Healthcare clients focus on Google, Yelp, and Facebook (Facebook/Facebook Reviews are actionable across industries)
+      // Non-Healthcare industries (Retail, Services, Hospitality, etc.): YellowPages is No Action Required, but Facebook / Google / Yelp remain Actionable
       if (!isHealthcare && srcLower === 'yellowpages') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
@@ -1046,7 +1046,6 @@
       updateKPIs();
     }
 
-    // UPDATED: Sum URLs Checked ONLY for entities that are marked as 'Completed'
     function calculateTotalUrlsChecked() {
       return queueData.reduce((sum, item) => {
         if (item.status === 'Completed') {
@@ -1111,7 +1110,6 @@
       return `${dateObj.year}-${dateObj.month}-${dateObj.day}_${dateObj.hour}-${dateObj.minute}-${dateObj.second}`;
     }
 
-    // UPDATED: Metrics export as 0 unless the entity status is 'Completed'
     function exportData() {
       saveActiveInputFields();
       autoSaveRuntimeState();

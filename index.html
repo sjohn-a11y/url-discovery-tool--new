@@ -712,12 +712,13 @@
     }
 
     /**
-     * Evaluates source row action requirement based on Industry, Client ID, and Sync Partner Rules
+     * Evaluates source row action requirement based on Industry, Client ID, Sync Partner Rules, and Entity Type
      */
-    function determineActionRequired(source, value, industry, clientId, syncType) {
+    function determineActionRequired(source, value, industry, clientId, syncType, entityType) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       const syncLower = (syncType || '').toLowerCase();
+      const typeLower = (entityType || '').toLowerCase();
       
       // 1. GLOBAL OVERRIDE: If entity is tagged as DIFFERENT_INDUSTRY ("No action required for this entity"), ALL sources are No Action Required
       const indCategory = analyzeIndustryCombination(industry, clientId);
@@ -736,32 +737,37 @@
         }
       }
 
-      // 3. Facebook & Facebook Reviews are Action Required across single industries (Retail, Services, Hospitality, Healthcare, etc.)
-      if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
-        return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
-      }
-
-      // 4. Non-Healthcare single industries: YellowPages is No Action Required
-      if (!isHealthcare && srcLower === 'yellowpages') {
-        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
-      }
-
-      // 5. Bing source is always No Action Required
-      if (srcLower === 'bing') {
-        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
-      }
-
-      // 6. Message contains "invalid input"
+      // 3. Message contains "invalid input" (Applies across all sources, including Facebook)
       if (valLower.includes('invalid input')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 7. Google statusCode":404
+      // 4. Entity Type Rule: If Entity Type is Person, Facebook & Facebook Reviews are No Action Required
+      if (typeLower === 'person' && (srcLower === 'facebook' || srcLower === 'facebook reviews')) {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
+
+      // 5. Facebook & Facebook Reviews are Action Required across non-Person entities
+      if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
+        return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
+      }
+
+      // 6. Non-Healthcare single industries: YellowPages is No Action Required
+      if (!isHealthcare && srcLower === 'yellowpages') {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
+
+      // 7. Bing source is always No Action Required
+      if (srcLower === 'bing') {
+        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+      }
+
+      // 8. Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 8. Google - Only check if API is provided
+      // 9. Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
@@ -892,7 +898,7 @@
       } else {
         // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
-          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType, entity.entityType);
           if (actionInfo.text === 'Action Required') {
             actionableCount++;
           }

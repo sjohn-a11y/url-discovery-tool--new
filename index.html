@@ -670,7 +670,7 @@
      * - 'RTGLOBAL_ACTIONABLE' (rtglobal + healthcare with <= 2 distinct industries)
      * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination or rtglobal with > 2 distinct industries)
      */
-    function analyzeIndustryCombination(industryStr, clientIdStr) {
+    function analyzeIndustryCombination(industryStr, clientIdStr, clientStr) {
       if (!industryStr || industryStr === '-') return 'SAME_INDUSTRY';
       
       const parts = industryStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -678,9 +678,10 @@
 
       const uniqueTags = new Set(parts);
       const clientIdLower = (clientIdStr || '').toLowerCase();
+      const clientLower = (clientStr || '').toLowerCase();
       
-      // Strictly checks the Client ID column for "rtglobal"
-      const isRtGlobal = clientIdLower.includes('rtglobal');
+      // Strictly checks Client ID or Client Name column for "rtglobal" or "review tracker global"
+      const isRtGlobal = clientIdLower.includes('rtglobal') || clientLower.includes('review tracker global') || clientLower.includes('rtglobal');
 
       // Special rtglobal Condition Check
       if (isRtGlobal) {
@@ -714,14 +715,16 @@
     /**
      * Evaluates source row action requirement based on Industry, Client ID, Sync Partner Rules, and Entity Type
      */
-    function determineActionRequired(source, value, industry, clientId, syncType, entityType) {
+    function determineActionRequired(source, value, industry, clientId, syncType, entityType, client) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
       const syncLower = (syncType || '').toLowerCase();
       const typeLower = (entityType || '').toLowerCase();
+      const clientLower = (client || '').toLowerCase();
+      const clientIdLower = (clientId || '').toLowerCase();
       
       // 1. GLOBAL OVERRIDE: If entity is tagged as DIFFERENT_INDUSTRY ("No action required for this entity"), ALL sources are No Action Required
-      const indCategory = analyzeIndustryCombination(industry, clientId);
+      const indCategory = analyzeIndustryCombination(industry, clientId, client);
       if (indCategory === 'DIFFERENT_INDUSTRY') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
@@ -729,10 +732,21 @@
       const indList = (industry || '').toLowerCase().split(',').map(s => s.trim());
       const isHealthcare = indList.includes('healthcare');
       const isRetail = indList.includes('retail');
+      const hasNonHealthcareIndustry = indList.some(ind => ind && ind !== 'healthcare' && ind !== 'employee');
+      const isRtGlobal = clientIdLower.includes('rtglobal') || clientLower.includes('review tracker global') || clientLower.includes('rtglobal');
 
-      // 2. LX + Retail Exception Rule: YellowPages is No Action Required
-      if (syncLower.includes('lx') && isRetail) {
-        if (srcLower === 'yellowpages') {
+      // 2. YellowPages Specific Logic (Enhanced for LX, Rio, RT Global & Non-Healthcare combinations)
+      if (srcLower === 'yellowpages') {
+        // Condition A: If non-healthcare single or multi-industry contains non-healthcare (like restaurant, retail)
+        if (!isHealthcare) {
+          return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        }
+        // Condition B: LX + Retail Exception
+        if (syncLower.includes('lx') && isRetail) {
+          return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
+        }
+        // Condition C: RT Global / LX Rio combination with non-healthcare (e.g. restaurant, healthcare where RT Global is ignored)
+        if ((isRtGlobal || syncLower.includes('lx') || syncLower.includes('rio')) && hasNonHealthcareIndustry) {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
       }
@@ -752,22 +766,17 @@
         return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
-      // 6. Non-Healthcare single industries: YellowPages is No Action Required
-      if (!isHealthcare && srcLower === 'yellowpages') {
-        return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
-      }
-
-      // 7. Bing source is always No Action Required
+      // 6. Bing source is always No Action Required
       if (srcLower === 'bing') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 8. Google statusCode":404
+      // 7. Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 9. Google - Only check if API is provided
+      // 8. Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
@@ -776,8 +785,8 @@
       return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
-    function isMultipleIndustries(industryStr, clientIdStr) {
-      return analyzeIndustryCombination(industryStr, clientIdStr) !== 'SAME_INDUSTRY';
+    function isMultipleIndustries(industryStr, clientIdStr, clientStr) {
+      return analyzeIndustryCombination(industryStr, clientIdStr, clientStr) !== 'SAME_INDUSTRY';
     }
 
     /**
@@ -856,7 +865,7 @@
       const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
 
-      const indCategory = analyzeIndustryCombination(entity.industry, entity.clientId);
+      const indCategory = analyzeIndustryCombination(entity.industry, entity.clientId, entity.client);
 
       if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
         indEl.className = "text-sm font-bold text-slate-800";
@@ -898,7 +907,7 @@
       } else {
         // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
-          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType, entity.entityType);
+          const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType, entity.entityType, entity.client);
           if (actionInfo.text === 'Action Required') {
             actionableCount++;
           }

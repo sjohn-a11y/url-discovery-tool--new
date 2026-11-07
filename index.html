@@ -264,7 +264,13 @@
         </div>
         <div class="meta-box">
           <p class="text-xs text-slate-400 font-medium">NPI Number</p>
-          <p id="metaNpi" class="text-sm font-bold text-slate-800 mt-0.5">N/A</p>
+          <div class="flex items-center justify-between gap-2 mt-0.5">
+            <p id="metaNpi" class="text-sm font-bold text-slate-800">N/A</p>
+            <button id="btnFindNpidb" onclick="findNpidbPage()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-md border border-blue-200 transition flex items-center gap-1.5 shadow-2xs">
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+              <span>Find NPIDB</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -658,6 +664,19 @@
       });
     }
 
+    function findNpidbPage() {
+      if (queueData.length === 0 || !queueData[currentIndex]) return;
+      const npiVal = String(queueData[currentIndex].npi || '').trim();
+
+      if (!npiVal || npiVal === 'N/A' || isNaN(npiVal)) {
+        alert('No valid NPI number is available for this entity.');
+        return;
+      }
+
+      const targetUrl = `https://npidb.org/search/?search_type=npi&query=${encodeURIComponent(npiVal)}`;
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+
     function scrollToTop() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -892,6 +911,17 @@
 
       document.getElementById('metaEntityType').textContent = entity.entityType;
       document.getElementById('metaNpi').textContent = entity.npi;
+
+      // Update button visual state based on availability of NPI
+      const btnNpidb = document.getElementById('btnFindNpidb');
+      const hasValidNpi = entity.npi && entity.npi !== 'N/A' && !isNaN(entity.npi);
+      if (hasValidNpi) {
+        btnNpidb.className = "px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-md border border-blue-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer";
+        btnNpidb.title = `Search NPI ${entity.npi} on NPIDB.org`;
+      } else {
+        btnNpidb.className = "px-2.5 py-1 bg-slate-100 text-slate-400 font-semibold text-xs rounded-md border border-slate-200 transition flex items-center gap-1.5 cursor-not-allowed";
+        btnNpidb.title = "No valid NPI number available";
+      }
 
       document.getElementById('remarks').value = entity.remarks || '';
       document.getElementById('siteDownList').value = entity.siteDownList || '';

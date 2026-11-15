@@ -13,7 +13,7 @@
   <style>
     body { background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .card-box { background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; }
-    .meta-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 12px 16px; }
+    .meta-box { background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; padding: 6px 10px; }
 
     /* Hide Number Input Spinners (Up/Down Arrows) */
     input[type="number"]::-webkit-outer-spin-button,
@@ -25,9 +25,29 @@
       -moz-appearance: textfield;
       appearance: textfield;
     }
+
+    /* Smooth Slidable Stats Drawer */
+    #statsDrawer {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, margin 0.35s ease;
+      margin-bottom: 0;
+    }
+    #statsDrawer.open {
+      max-height: 220px;
+      opacity: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Clean thin scrollbars for internal panels */
+    .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .thin-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .thin-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="text-slate-800 min-h-screen flex flex-col">
+<body class="text-slate-800 h-screen overflow-hidden flex flex-col">
 
   <!-- Analyst Login & Registration Modal -->
   <div id="loginModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -79,16 +99,16 @@
   <div id="pendingDrawer" class="hidden fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs">
     <div class="absolute inset-y-0 right-0 max-w-full flex pl-10">
       <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
-        <div class="p-6 bg-slate-900 text-white flex items-center justify-between">
+        <div class="p-5 bg-slate-900 text-white flex items-center justify-between">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-list-check text-amber-400"></i>
-            <h2 class="text-lg font-bold">Pending Entities Queue</h2>
+            <h2 class="text-base font-bold">Pending Entities Queue</h2>
           </div>
           <button onclick="togglePendingDrawer(false)" class="text-slate-400 hover:text-white text-lg">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
-        <div class="p-4 bg-slate-100 border-b border-slate-200 flex justify-between items-center text-xs font-semibold text-slate-600">
+        <div class="p-3 bg-slate-100 border-b border-slate-200 flex justify-between items-center text-xs font-semibold text-slate-600">
           <span>Click any entity to jump directly to it</span>
           <span id="pendingDrawerCount" class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">0 Pending</span>
         </div>
@@ -99,41 +119,47 @@
     </div>
   </div>
 
-  <!-- Workspace Header -->
-  <header id="mainHeader" class="hidden bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm">
-    <div class="flex items-center space-x-3">
-      <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-xl"></i>
-      <h1 class="text-lg font-bold text-slate-800 tracking-tight">EV - URL Discovery File Processor</h1>
+  <!-- Compact Top Workspace Header -->
+  <header id="mainHeader" class="hidden bg-white border-b border-slate-200 px-5 py-2.5 flex justify-between items-center shadow-xs shrink-0">
+    <div class="flex items-center space-x-2.5">
+      <i class="fa-solid fa-magnifying-glass-location text-blue-600 text-lg"></i>
+      <h1 class="text-base font-bold text-slate-800 tracking-tight">EV - URL Discovery File Processor</h1>
     </div>
 
-    <!-- Search Bar & Pending List Drawer Trigger -->
-    <div id="searchContainer" class="hidden flex items-center gap-3">
+    <!-- Search Bar, Pending List & Slidable Stats Toggle -->
+    <div id="searchContainer" class="hidden flex items-center gap-2">
       <div class="relative">
-        <input type="text" id="globalSearchInput" onkeydown="if(event.key==='Enter') searchEntityById()" placeholder="Search Entity ID..." class="w-56 pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
-        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+        <input type="text" id="globalSearchInput" onkeydown="if(event.key==='Enter') searchEntityById()" placeholder="Search Entity ID..." class="w-44 pl-8 pr-2.5 py-1 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-slate-400 text-[11px]"></i>
       </div>
-      <button onclick="searchEntityById()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200 transition">
+      <button onclick="searchEntityById()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200 transition">
         Search
       </button>
-      <button onclick="togglePendingDrawer(true)" class="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded-lg text-xs border border-amber-200 transition flex items-center gap-1.5">
+      <button onclick="togglePendingDrawer(true)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded-lg text-xs border border-amber-200 transition flex items-center gap-1.5">
         <i class="fa-solid fa-list-check"></i> Pending List
+      </button>
+      <button id="btnToggleStats" onclick="toggleStatsDrawer()" class="px-3 py-1 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-xs border border-slate-700 transition flex items-center gap-1.5 shadow-2xs">
+        <i class="fa-solid fa-chart-pie text-amber-400"></i>
+        <span>Stats & Pace</span>
+        <span id="miniStatsSummary" class="ml-1 px-1.5 py-0.2 bg-slate-700 text-amber-300 rounded text-[10px] font-mono">0/0</span>
+        <i id="statsChevron" class="fa-solid fa-chevron-down text-[10px] ml-0.5 transition-transform duration-200"></i>
       </button>
     </div>
 
-    <div class="flex items-center gap-6">
-      <div class="text-right">
-        <span class="block text-[10px] text-slate-400 uppercase font-bold tracking-wider">Logged in as</span>
-        <span id="activeUserBadge" class="text-sm font-extrabold text-blue-600">-</span>
+    <div class="flex items-center gap-3">
+      <div class="text-right leading-tight">
+        <span class="block text-[9px] text-slate-400 uppercase font-bold tracking-wider">Logged in as</span>
+        <span id="activeUserBadge" class="text-xs font-extrabold text-blue-600">-</span>
       </div>
-      <button onclick="handleLogout()" class="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition font-semibold flex items-center gap-1.5">
+      <button onclick="handleLogout()" class="px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition font-semibold flex items-center gap-1">
         <i class="fa-solid fa-right-from-bracket"></i> Logout
       </button>
-      <div id="fileUploadContainer" class="flex items-center gap-3">
+      <div id="fileUploadContainer" class="flex items-center gap-2">
         <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="hidden"/>
-        <button onclick="document.getElementById('excelFile').click()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
-          <i class="fa-solid fa-file-excel"></i> Upload Excel File
+        <button onclick="document.getElementById('excelFile').click()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-xs transition shadow-xs flex items-center gap-1.5">
+          <i class="fa-solid fa-file-excel"></i> Upload Excel
         </button>
-        <button id="btnDownload" onclick="exportData()" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+        <button id="btnDownload" onclick="exportData()" class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs transition shadow-xs flex items-center gap-1.5">
           <i class="fa-solid fa-download"></i> Export (.xlsx)
         </button>
       </div>
@@ -141,240 +167,259 @@
   </header>
 
   <!-- Auto-Restore Banner -->
-  <div id="restoreBanner" class="hidden bg-indigo-900 text-white px-8 py-3 flex justify-between items-center shadow-inner">
-    <div class="flex items-center gap-3 text-sm font-medium">
-      <i class="fa-solid fa-clock-rotate-left text-amber-400 text-lg"></i>
+  <div id="restoreBanner" class="hidden bg-indigo-900 text-white px-6 py-2 flex justify-between items-center shadow-inner shrink-0">
+    <div class="flex items-center gap-2.5 text-xs font-medium">
+      <i class="fa-solid fa-clock-rotate-left text-amber-400 text-base"></i>
       <span>Saved session detected! You have unsaved progress from a previous run.</span>
     </div>
-    <div class="flex gap-3">
-      <button onclick="resumeSavedSession()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition">
+    <div class="flex gap-2">
+      <button onclick="resumeSavedSession()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg transition">
         Resume Session
       </button>
-      <button onclick="clearSavedSession()" class="px-3.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg transition">
+      <button onclick="clearSavedSession()" class="px-3 py-1 bg-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg transition">
         Discard & Start New
       </button>
     </div>
   </div>
 
-  <main id="mainWorkspace" class="hidden max-w-7xl mx-auto px-8 py-6 w-full space-y-6">
+  <!-- Main Viewport-Fitted Workspace -->
+  <main id="mainWorkspace" class="hidden flex-1 flex flex-col overflow-hidden max-w-[1600px] w-full mx-auto px-5 py-3">
 
-    <!-- Top KPI Cards Section with Pace Tracker -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-      <div class="card-box p-3 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Total Entities</p>
-        <p id="kpiTotalEntities" class="text-xl font-bold text-blue-600 mt-1">0</p>
-      </div>
-      <div class="card-box p-3 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Not Started</p>
-        <p id="kpiNotStarted" class="text-xl font-bold text-slate-600 mt-1">0</p>
-      </div>
-      <div class="card-box p-3 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Pending</p>
-        <p id="kpiPending" class="text-xl font-bold text-amber-600 mt-1">0</p>
-      </div>
-      <div class="card-box p-3 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">Completed</p>
-        <p id="kpiCompleted" class="text-xl font-bold text-emerald-600 mt-1">0</p>
-      </div>
-      <div class="card-box p-3 text-center shadow-sm">
-        <p class="text-xs font-medium text-slate-500">URLs Verified</p>
-        <p id="kpiUrlsVerified" class="text-xl font-bold text-blue-600 mt-1">0</p>
-      </div>
-      
-      <!-- Live Hourly Pace Tracker Card -->
-      <div class="card-box p-3 text-center shadow-sm bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
-        <div>
-          <div class="flex justify-between items-center">
-            <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">URL Pace Tracker</span>
-            <button onclick="resetPaceTimer()" title="Reset Session Timer" class="text-slate-400 hover:text-white text-xs">
-              <i class="fa-solid fa-rotate-right"></i>
-            </button>
-          </div>
-          <div class="flex items-baseline justify-center gap-1 mt-0.5">
-            <span id="kpiHourlyPace" class="text-xl font-black text-amber-400">0</span>
-            <span class="text-[10px] font-medium text-slate-300">URLs/hr</span>
-          </div>
+    <!-- Slidable KPI & Pace Tracker Drawer (Collapsed by default to maximize workspace; slides open on click) -->
+    <div id="statsDrawer" class="shrink-0">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-0.5 pb-1">
+        <div class="card-box p-2.5 text-center shadow-2xs">
+          <p class="text-[11px] font-medium text-slate-500">Total Entities</p>
+          <p id="kpiTotalEntities" class="text-lg font-bold text-blue-600 mt-0.5">0</p>
         </div>
-        <div class="mt-1">
-          <span id="paceStatusBadge" class="inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300">
-            Target: 1,000/day
-          </span>
+        <div class="card-box p-2.5 text-center shadow-2xs">
+          <p class="text-[11px] font-medium text-slate-500">Not Started</p>
+          <p id="kpiNotStarted" class="text-lg font-bold text-slate-600 mt-0.5">0</p>
+        </div>
+        <div class="card-box p-2.5 text-center shadow-2xs">
+          <p class="text-[11px] font-medium text-slate-500">Pending</p>
+          <p id="kpiPending" class="text-lg font-bold text-amber-600 mt-0.5">0</p>
+        </div>
+        <div class="card-box p-2.5 text-center shadow-2xs">
+          <p class="text-[11px] font-medium text-slate-500">Completed</p>
+          <p id="kpiCompleted" class="text-lg font-bold text-emerald-600 mt-0.5">0</p>
+        </div>
+        <div class="card-box p-2.5 text-center shadow-2xs">
+          <p class="text-[11px] font-medium text-slate-500">URLs Verified</p>
+          <p id="kpiUrlsVerified" class="text-lg font-bold text-blue-600 mt-0.5">0</p>
+        </div>
+
+        <!-- Live Hourly Pace Tracker Card -->
+        <div class="card-box p-2.5 text-center shadow-2xs bg-slate-900 text-white border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">URL Pace Tracker</span>
+              <button onclick="resetPaceTimer()" title="Reset Session Timer" class="text-slate-400 hover:text-white text-xs">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+            </div>
+            <div class="flex items-baseline justify-center gap-1">
+              <span id="kpiHourlyPace" class="text-lg font-black text-amber-400">0</span>
+              <span class="text-[10px] font-medium text-slate-300">URLs/hr</span>
+            </div>
+          </div>
+          <div>
+            <span id="paceStatusBadge" class="inline-block px-2 py-0.2 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300">
+              Target: 1,000/day
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
-    <hr class="border-slate-200"/>
-
-    <!-- Queue Counter & Auto-Save Indicator -->
-    <div id="counterHeader" class="hidden justify-between items-center text-base font-medium text-slate-600">
-      <div><span id="currentIdx">0</span> / <span id="totalIdx">0</span></div>
+    <!-- Compact Queue Counter & Auto-Save Strip -->
+    <div id="counterHeader" class="hidden justify-between items-center text-xs font-semibold text-slate-600 mb-2 shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="bg-white border border-slate-200 px-2.5 py-0.5 rounded-md font-mono text-slate-800 shadow-2xs">
+          Entity <span id="currentIdx" class="text-blue-600 font-bold">0</span> / <span id="totalIdx">0</span>
+        </span>
+      </div>
       <span id="autoSaveIndicator" class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
         <i class="fa-solid fa-circle-check"></i> Real-time Auto-Save Active
       </span>
     </div>
 
-    <!-- Main Entity Workspace Card -->
-    <div id="entityCard" class="hidden card-box p-8 shadow-sm space-y-6">
-      
-      <!-- Entity Name & Dynamic Status Badge Next to Name -->
-      <div>
-        <div class="flex items-center gap-3">
-          <h2 id="entityTitle" class="text-2xl font-bold text-slate-900">Entity Name</h2>
-          <span id="entityStatusBadge" class="inline-block px-2.5 py-0.5 text-xs font-extrabold rounded-full border bg-slate-100 text-slate-600 border-slate-300">
-            Not Started
-          </span>
-        </div>
-        <div class="mt-1.5 inline-flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Entity ID:</span>
-          <span id="entityIdText" class="text-base font-bold font-mono text-slate-800 select-all">0000000</span>
-          <button onclick="copyEntityId()" title="Copy Entity ID" class="text-slate-500 hover:text-blue-600 text-xs ml-1 transition flex items-center gap-1">
-            <i class="fa-regular fa-copy"></i>
-            <span id="copyToast" class="hidden text-[10px] font-bold text-emerald-600">Copied!</span>
-          </button>
-        </div>
-      </div>
+    <!-- Split-Screen Zero-Scroll Workspace Card -->
+    <div id="entityCard" class="hidden flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-      <!-- Metadata Box Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="meta-box">
-          <p class="text-xs text-slate-400 font-medium">Client</p>
-          <p id="metaClient" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
-        </div>
-        <div class="meta-box">
-          <p class="text-xs text-slate-400 font-medium">Sync Type</p>
-          <p id="metaSync" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
-        </div>
-        <div class="meta-box">
-          <p class="text-xs text-slate-400 font-medium">Products</p>
-          <p id="metaProducts" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
-        </div>
-        <div class="meta-box" id="industryBox">
-          <p class="text-xs text-slate-400 font-medium">Industry</p>
-          <div id="metaIndustryContainer" class="mt-0.5">
-            <p id="metaIndustry" class="text-sm font-bold text-slate-800">-</p>
-            <p id="metaIndustryNotice" class="hidden text-[11px] font-bold mt-1 flex items-center gap-1">
-              <i id="metaIndustryNoticeIcon" class="fa-solid fa-triangle-exclamation"></i>
-              <span id="metaIndustryNoticeText">No action required for this entity</span>
-            </p>
+      <!-- LEFT COLUMN (7 cols): Entity Header + Metadata + Scrollable URLs / Error Details -->
+      <div class="lg:col-span-7 card-box p-4 shadow-xs flex flex-col min-h-0">
+
+        <!-- Compact Entity Title & ID Row -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100 shrink-0">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <h2 id="entityTitle" class="text-lg font-bold text-slate-900 truncate">Entity Name</h2>
+            <span id="entityStatusBadge" class="inline-block px-2 py-0.5 text-[11px] font-extrabold rounded-full border bg-slate-100 text-slate-600 border-slate-300 shrink-0">
+              Not Started
+            </span>
           </div>
-        </div>
-        <div class="meta-box">
-          <p class="text-xs text-slate-400 font-medium">Entity Type</p>
-          <p id="metaEntityType" class="text-sm font-bold text-slate-800 mt-0.5">-</p>
-        </div>
-        <div class="meta-box">
-          <p class="text-xs text-slate-400 font-medium">NPI Number</p>
-          <div class="flex items-center justify-between gap-2 mt-0.5">
-            <p id="metaNpi" class="text-sm font-bold text-slate-800">N/A</p>
-            <button id="btnFindNpidb" onclick="findNpidbPage()" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-md border border-blue-200 transition flex items-center gap-1.5 shadow-2xs">
-              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-              <span>Find NPIDB</span>
+
+          <div class="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200 shrink-0">
+            <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ID:</span>
+            <span id="entityIdText" class="text-xs font-bold font-mono text-slate-800 select-all">0000000</span>
+            <button onclick="copyEntityId()" title="Copy Entity ID" class="text-slate-500 hover:text-blue-600 text-xs ml-0.5 transition flex items-center gap-1">
+              <i class="fa-regular fa-copy"></i>
+              <span id="copyToast" class="hidden text-[10px] font-bold text-emerald-600">Copied!</span>
             </button>
           </div>
         </div>
-      </div>
 
-      <!-- Error Details Header -->
-      <div class="pt-2">
-        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-          <i class="fa-solid fa-magnifying-glass text-blue-500"></i> Error Details
-        </h3>
-      </div>
+        <!-- Compact 3x2 Metadata Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 py-2.5 shrink-0">
+          <div class="meta-box">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">Client</p>
+            <p id="metaClient" class="text-xs font-bold text-slate-800 mt-0.5 line-clamp-2" title="">-</p>
+          </div>
+          <div class="meta-box">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">Sync Type</p>
+            <p id="metaSync" class="text-xs font-bold text-slate-800 mt-0.5 truncate">-</p>
+          </div>
+          <div class="meta-box">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">Products</p>
+            <p id="metaProducts" class="text-xs font-bold text-slate-800 mt-0.5 line-clamp-2">-</p>
+          </div>
+          <div class="meta-box" id="industryBox">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">Industry</p>
+            <div id="metaIndustryContainer" class="mt-0.5">
+              <p id="metaIndustry" class="text-xs font-bold text-slate-800 truncate">-</p>
+              <p id="metaIndustryNotice" class="hidden text-[10px] font-bold mt-0.5 flex items-center gap-1">
+                <i id="metaIndustryNoticeIcon" class="fa-solid fa-triangle-exclamation"></i>
+                <span id="metaIndustryNoticeText" class="truncate">No action required for this entity</span>
+              </p>
+            </div>
+          </div>
+          <div class="meta-box">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">Entity Type</p>
+            <p id="metaEntityType" class="text-xs font-bold text-slate-800 mt-0.5 truncate">-</p>
+          </div>
+          <div class="meta-box">
+            <p class="text-[10px] text-slate-400 font-semibold uppercase">NPI Number</p>
+            <div class="flex items-center justify-between gap-1.5 mt-0.5">
+              <p id="metaNpi" class="text-xs font-bold text-slate-800 truncate">N/A</p>
+              <button id="btnFindNpidb" onclick="findNpidbPage()" class="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded border border-blue-200 transition flex items-center gap-1 shrink-0">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                <span>Find NPIDB</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
-      <!-- Source Error Details Table -->
-      <div class="overflow-x-auto border border-slate-200 rounded-lg">
-        <table class="w-full text-left text-sm text-slate-700">
-          <thead class="bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-200">
-            <tr>
-              <th class="py-3 px-4 w-10 text-center">#</th>
-              <th class="py-3 px-4 w-1/6">Source</th>
-              <th class="py-3 px-4 w-1/2">Value</th>
-              <th class="py-3 px-4 w-1/3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody id="errorTableBody" class="divide-y divide-slate-200 bg-white">
-            <!-- Dynamic Error Rows -->
-          </tbody>
-        </table>
-      </div>
+        <!-- Error Details Section Header -->
+        <div class="pb-1.5 flex items-center justify-between shrink-0">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-magnifying-glass text-blue-500"></i> Error Details & URLs
+          </h3>
+        </div>
 
-      <!-- Entity Numeric Metrics Section -->
-      <div class="pt-2">
-        <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-          <i class="fa-solid fa-chart-column text-blue-500"></i> URL Verification Metrics
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-amber-50/60 p-4 rounded-xl border border-amber-200/80">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">URLs checked</label>
-            <input type="number" id="m_urlsChecked" oninput="onMetricsInput()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">No of URLs newly configured</label>
-            <input type="number" id="m_urlsNewlyConfigured" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Duplicate URLS Fetched (File)</label>
-            <input type="number" id="m_dupUrlsFetched" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Wrongly URLS Fetched (File)</label>
-            <input type="number" id="m_wrongUrlsFetched" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">No of URLs Deleted</label>
-            <input type="number" id="m_urlsDeleted" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Configured in Duplicate Entity</label>
-            <input type="number" id="m_urlInDupEntity" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 mb-1">Configured in Wrong Entity</label>
-            <input type="number" id="m_urlInWrongEntity" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
-          </div>
+        <!-- Internally Scrollable Source Error Details Table -->
+        <div class="flex-1 min-h-0 overflow-y-auto thin-scroll border border-slate-200 rounded-lg">
+          <table class="w-full text-left text-xs text-slate-700">
+            <thead class="bg-slate-50 text-[11px] font-semibold text-slate-600 border-b border-slate-200 sticky top-0 z-10">
+              <tr>
+                <th class="py-2 px-2.5 w-8 text-center">#</th>
+                <th class="py-2 px-2.5 w-28">Source</th>
+                <th class="py-2 px-2.5">Value</th>
+                <th class="py-2 px-2.5 w-32 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="errorTableBody" class="divide-y divide-slate-200 bg-white">
+              <!-- Dynamic Error Rows -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Text Inputs: Site Down List, Wrong Harvester Details, and Remarks -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-globe text-rose-500"></i> Site Down List
-          </label>
-          <textarea id="siteDownList" oninput="autoSaveRuntimeState()" rows="2" placeholder="List domains/sources currently down..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-bug text-amber-600"></i> Wrong Harvester Details
-          </label>
-          <textarea id="wrongHarvesterDetails" oninput="autoSaveRuntimeState()" rows="2" placeholder="Detail any incorrect scraper or harvester behavior..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
-            <i class="fa-solid fa-pen-to-square text-blue-500"></i> Remarks
-          </label>
-          <textarea id="remarks" oninput="autoSaveRuntimeState()" rows="2" placeholder="Type resolution comments or action notes here..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50"></textarea>
-        </div>
-      </div>
+      <!-- RIGHT COLUMN (5 cols): Numeric Metrics + Remarks Text Boxes + Action Buttons -->
+      <div class="lg:col-span-5 card-box p-4 shadow-xs flex flex-col justify-between min-h-0 overflow-y-auto thin-scroll space-y-3">
 
-      <!-- Bottom Navigation & Action Bar -->
-      <div class="pt-4 flex justify-between items-center border-t border-slate-100">
-        <button id="btnPrev" onclick="navigateQueue(-1)" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
-          <i class="fa-solid fa-chevron-left mr-1"></i> Previous
-        </button>
+        <div class="space-y-3">
+          <!-- Entity Numeric Metrics Section (Compact 2-Column Grid) -->
+          <div>
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-column text-blue-500"></i> URL Verification Metrics
+            </h3>
+            <div class="grid grid-cols-2 gap-2.5 bg-amber-50/70 p-3 rounded-lg border border-amber-200/80">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">URLs checked</label>
+                <input type="number" id="m_urlsChecked" oninput="onMetricsInput()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">No of URLs newly configured</label>
+                <input type="number" id="m_urlsNewlyConfigured" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Duplicate URLS Fetched (File)</label>
+                <input type="number" id="m_dupUrlsFetched" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Wrongly URLS Fetched (File)</label>
+                <input type="number" id="m_wrongUrlsFetched" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">No of URLs Deleted</label>
+                <input type="number" id="m_urlsDeleted" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Configured in Duplicate Entity</label>
+                <input type="number" id="m_urlInDupEntity" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+              <div class="col-span-2">
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Configured in Wrong Entity</label>
+                <input type="number" id="m_urlInWrongEntity" oninput="autoSaveRuntimeState()" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 bg-white" placeholder="0">
+              </div>
+            </div>
+          </div>
 
-        <div class="flex gap-3">
-          <button onclick="markStatus('Pending')" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg text-sm transition shadow-sm">
-            Mark Pending & Next
+          <!-- Text Inputs: Site Down List, Wrong Harvester Details, and Remarks -->
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-0.5 flex items-center gap-1.5">
+                  <i class="fa-solid fa-globe text-rose-500"></i> Site Down List
+                </label>
+                <textarea id="siteDownList" oninput="autoSaveRuntimeState()" rows="2" placeholder="Domains/sources down..." class="w-full border border-slate-300 rounded-md p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 resize-none"></textarea>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-0.5 flex items-center gap-1.5">
+                  <i class="fa-solid fa-bug text-amber-600"></i> Wrong Harvester Details
+                </label>
+                <textarea id="wrongHarvesterDetails" oninput="autoSaveRuntimeState()" rows="2" placeholder="Incorrect scraper behavior..." class="w-full border border-slate-300 rounded-md p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 resize-none"></textarea>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-0.5 flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-to-square text-blue-500"></i> Remarks
+              </label>
+              <textarea id="remarks" oninput="autoSaveRuntimeState()" rows="2" placeholder="Type resolution comments or action notes here..." class="w-full border border-slate-300 rounded-md p-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 resize-none"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Navigation & Action Bar (Pinned to Bottom of Right Panel) -->
+        <div class="pt-2.5 flex flex-wrap justify-between items-center gap-2 border-t border-slate-200 shrink-0">
+          <button id="btnPrev" onclick="navigateQueue(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold rounded-lg text-xs transition">
+            <i class="fa-solid fa-chevron-left mr-1"></i> Prev
           </button>
-          <button onclick="markStatus('Completed')" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-sm">
-            Mark Completed & Next
+
+          <div class="flex gap-2">
+            <button onclick="markStatus('Pending')" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg text-xs transition shadow-2xs">
+              Pending & Next
+            </button>
+            <button onclick="markStatus('Completed')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-2xs">
+              Completed & Next
+            </button>
+          </div>
+
+          <button id="btnNext" onclick="navigateQueue(1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold rounded-lg text-xs transition">
+            Next <i class="fa-solid fa-chevron-right ml-1"></i>
           </button>
         </div>
 
-        <button id="btnNext" onclick="navigateQueue(1)" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition">
-          Next <i class="fa-solid fa-chevron-right ml-1"></i>
-        </button>
       </div>
 
     </div>
@@ -392,6 +437,13 @@
     window.addEventListener('DOMContentLoaded', () => {
       checkLoginSession();
     });
+
+    function toggleStatsDrawer() {
+      const drawer = document.getElementById('statsDrawer');
+      const chevron = document.getElementById('statsChevron');
+      drawer.classList.toggle('open');
+      chevron.classList.toggle('rotate-180');
+    }
 
     function checkLoginSession() {
       const storedUser = localStorage.getItem('url_discovery_user');
@@ -564,12 +616,12 @@
           entityType: entityType,
           npi: npi,
           errors: errors,
-          status: 'Not Started', // Defaults to "Not Started"
+          status: 'Not Started',
           remarks: '',
           siteDownList: '',
           wrongHarvesterDetails: '',
           metrics: {
-            urlsChecked: null, // Initially null to allow auto-population on load
+            urlsChecked: null,
             urlsNewlyConfigured: 0,
             dupUrlsFetched: 0,
             wrongUrlsFetched: 0,
@@ -678,17 +730,11 @@
     }
 
     function scrollToTop() {
+      const tableContainer = document.querySelector('#entityCard .overflow-y-auto');
+      if (tableContainer) tableContainer.scrollTop = 0;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    /**
-     * Helper to classify Industry List:
-     * Returns:
-     * - 'SAME_INDUSTRY' (e.g. healthcare, healthcare OR retail, retail)
-     * - 'HEALTHCARE_EMPLOYEE_ONLY' (strictly healthcare and employee, no other industries)
-     * - 'RTGLOBAL_ACTIONABLE' (rtglobal + healthcare with <= 2 distinct industries)
-     * - 'DIFFERENT_INDUSTRY' (any other multi-industry combination or rtglobal with > 2 distinct industries)
-     */
     function analyzeIndustryCombination(industryStr, clientIdStr, clientStr) {
       if (!industryStr || industryStr === '-') return 'SAME_INDUSTRY';
       
@@ -699,14 +745,11 @@
       const clientIdLower = (clientIdStr || '').toLowerCase();
       const clientLower = (clientStr || '').toLowerCase();
       
-      // Strictly checks Client ID or Client Name column for "rtglobal" or "review tracker global"
       const isRtGlobal = clientIdLower.includes('rtglobal') || clientLower.includes('review tracker global') || clientLower.includes('rtglobal');
 
-      // Special rtglobal Condition Check
       if (isRtGlobal) {
         const hasHealthcare = uniqueTags.has('healthcare');
         if (hasHealthcare) {
-          // If there are more than 2 distinct industry values, consider as No Action Required
           if (uniqueTags.size > 2) {
             return 'DIFFERENT_INDUSTRY';
           }
@@ -714,12 +757,10 @@
         }
       }
 
-      // Check if all elements are identical (Rule 1: Same Industry)
       const first = parts[0];
       const isAllSame = parts.every(p => p === first);
       if (isAllSame) return 'SAME_INDUSTRY';
 
-      // Check if it's strictly healthcare + employee ONLY (Rule 3)
       const hasHealthcare = uniqueTags.has('healthcare');
       const hasEmployee = uniqueTags.has('employee');
 
@@ -727,13 +768,9 @@
         return 'HEALTHCARE_EMPLOYEE_ONLY';
       }
 
-      // Rule 2 & 4: Different industry OR healthcare+employee+other
       return 'DIFFERENT_INDUSTRY';
     }
 
-    /**
-     * Evaluates source row action requirement based on Industry, Client ID, Sync Partner Rules, and Entity Type
-     */
     function determineActionRequired(source, value, industry, clientId, syncType, entityType, client) {
       const srcLower = (source || '').toLowerCase();
       const valLower = (value || '').toLowerCase();
@@ -742,7 +779,6 @@
       const clientLower = (client || '').toLowerCase();
       const clientIdLower = (clientId || '').toLowerCase();
       
-      // 1. GLOBAL OVERRIDE: If entity is tagged as DIFFERENT_INDUSTRY ("No action required for this entity"), ALL sources are No Action Required
       const indCategory = analyzeIndustryCombination(industry, clientId, client);
       if (indCategory === 'DIFFERENT_INDUSTRY') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
@@ -754,53 +790,42 @@
       const hasNonHealthcareIndustry = indList.some(ind => ind && ind !== 'healthcare' && ind !== 'employee');
       const isRtGlobal = clientIdLower.includes('rtglobal') || clientLower.includes('review tracker global') || clientLower.includes('rtglobal');
 
-      // 2. YellowPages Specific Logic (Enhanced for LX, Rio, RT Global & Non-Healthcare combinations)
       if (srcLower === 'yellowpages') {
-        // Condition A: If non-healthcare single or multi-industry contains non-healthcare (like restaurant, retail)
         if (!isHealthcare) {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
-        // Condition B: LX + Retail Exception
         if (syncLower.includes('lx') && isRetail) {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
-        // Condition C: RT Global / LX Rio combination with non-healthcare (e.g. restaurant, healthcare where RT Global is ignored)
         if ((isRtGlobal || syncLower.includes('lx') || syncLower.includes('rio')) && hasNonHealthcareIndustry) {
           return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
         }
       }
 
-      // 3. Message contains "invalid input" (Applies across all sources, including Facebook)
       if (valLower.includes('invalid input')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 4. Entity Type Rule: If Entity Type is Person, Facebook & Facebook Reviews are No Action Required
       if (typeLower === 'person' && (srcLower === 'facebook' || srcLower === 'facebook reviews')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 5. Facebook & Facebook Reviews are Action Required across non-Person entities
       if (srcLower === 'facebook' || srcLower === 'facebook reviews') {
         return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       }
 
-      // 6. Bing source is always No Action Required
       if (srcLower === 'bing') {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 7. Google statusCode":404
       if (srcLower === 'google' && valLower.includes('statuscode":404')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // 8. Google - Only check if API is provided
       if (srcLower === 'google' && !valLower.includes('http') && !valLower.includes('api')) {
         return { text: 'No Action Required', style: 'bg-sky-50 text-sky-700 border-sky-200 font-medium' };
       }
 
-      // Default fallback for actionable cases
       return { text: 'Action Required', style: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
     }
 
@@ -808,15 +833,12 @@
       return analyzeIndustryCombination(industryStr, clientIdStr, clientStr) !== 'SAME_INDUSTRY';
     }
 
-    /**
-     * Parses error value text, formats URLs into list with hyperlinks, and flags duplicates
-     */
     function formatErrorValueContent(text) {
       const urlRegex = /(https?:\/\/[^\s"',\]]+)/g;
       const foundUrls = text.match(urlRegex) || [];
 
       if (foundUrls.length === 0) {
-        return `<div class="font-mono text-xs text-slate-600 break-all">${text}</div>`;
+        return `<div class="font-mono text-[11px] text-slate-600 break-all">${text}</div>`;
       }
 
       const cleanUrls = foundUrls.map(u => u.replace(/\\+$/, ''));
@@ -831,11 +853,11 @@
         }
       });
 
-      let listHtml = `<ul class="list-disc list-inside space-y-1 mt-1">`;
+      let listHtml = `<ul class="list-disc list-inside space-y-0.5 mt-0.5">`;
       cleanUrls.forEach(url => {
         const isDuplicate = duplicateUrlsSet.has(url);
         listHtml += `
-          <li class="font-mono text-xs break-all">
+          <li class="font-mono text-[11px] break-all">
             <a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 font-semibold underline hover:text-blue-800">${url}</a>
             ${isDuplicate ? `<span class="ml-1.5 inline-block px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded">Duplicate URL</span>` : ''}
           </li>
@@ -845,7 +867,7 @@
 
       let nonUrlText = text.replace(urlRegex, '').trim();
       if (nonUrlText) {
-        return `<div class="font-mono text-xs text-slate-600 break-all mb-1">${nonUrlText}</div>${listHtml}`;
+        return `<div class="font-mono text-[11px] text-slate-600 break-all mb-0.5">${nonUrlText}</div>${listHtml}`;
       }
 
       return listHtml;
@@ -862,64 +884,68 @@
       document.getElementById('entityTitle').textContent = entity.name;
       document.getElementById('entityIdText').textContent = entity.id;
 
-      // Update Dynamic Entity Status Badge Next to Entity Name
       const statusBadge = document.getElementById('entityStatusBadge');
       statusBadge.textContent = entity.status;
       if (entity.status === 'Completed') {
-        statusBadge.className = "inline-block px-2.5 py-0.5 text-xs font-extrabold rounded-full border bg-emerald-100 text-emerald-800 border-emerald-300";
+        statusBadge.className = "inline-block px-2 py-0.5 text-[11px] font-extrabold rounded-full border bg-emerald-100 text-emerald-800 border-emerald-300 shrink-0";
       } else if (entity.status === 'Pending') {
-        statusBadge.className = "inline-block px-2.5 py-0.5 text-xs font-extrabold rounded-full border bg-amber-100 text-amber-800 border-amber-300";
+        statusBadge.className = "inline-block px-2 py-0.5 text-[11px] font-extrabold rounded-full border bg-amber-100 text-amber-800 border-amber-300 shrink-0";
       } else {
-        statusBadge.className = "inline-block px-2.5 py-0.5 text-xs font-extrabold rounded-full border bg-slate-100 text-slate-600 border-slate-300";
+        statusBadge.className = "inline-block px-2 py-0.5 text-[11px] font-extrabold rounded-full border bg-slate-100 text-slate-600 border-slate-300 shrink-0";
       }
 
-      document.getElementById('metaClient').textContent = entity.client;
+      const clientEl = document.getElementById('metaClient');
+      clientEl.textContent = entity.client;
+      clientEl.title = entity.client;
+
       document.getElementById('metaSync').textContent = entity.syncType;
-      document.getElementById('metaProducts').textContent = entity.products;
+
+      const prodEl = document.getElementById('metaProducts');
+      prodEl.textContent = entity.products;
+      prodEl.title = entity.products;
       
-      // Industry Highlight & Alert Message Styling
       const indEl = document.getElementById('metaIndustry');
       const indNotice = document.getElementById('metaIndustryNotice');
       const indNoticeIcon = document.getElementById('metaIndustryNoticeIcon');
       const indNoticeText = document.getElementById('metaIndustryNoticeText');
       indEl.textContent = entity.industry;
+      indEl.title = entity.industry;
 
       const indCategory = analyzeIndustryCombination(entity.industry, entity.clientId, entity.client);
 
       if (indCategory === 'HEALTHCARE_EMPLOYEE_ONLY') {
-        indEl.className = "text-sm font-bold text-slate-800";
-        indNoticeText.textContent = "Multiple industries detected (Healthcare Exception)";
-        indNotice.className = "text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1";
+        indEl.className = "text-xs font-bold text-slate-800 truncate";
+        indNoticeText.textContent = "Healthcare Exception";
+        indNotice.className = "text-[10px] font-bold text-blue-600 mt-0.5 flex items-center gap-1";
         indNoticeIcon.className = "fa-solid fa-circle-info";
         indNotice.classList.remove('hidden');
       } else if (indCategory === 'RTGLOBAL_ACTIONABLE') {
-        indEl.className = "text-sm font-bold text-slate-800";
-        indNoticeText.textContent = "rtglobal Client: Action Required (Healthcare)";
-        indNotice.className = "text-[11px] font-bold text-blue-600 mt-1 flex items-center gap-1";
+        indEl.className = "text-xs font-bold text-slate-800 truncate";
+        indNoticeText.textContent = "rtglobal: Action Required (Healthcare)";
+        indNotice.className = "text-[10px] font-bold text-blue-600 mt-0.5 flex items-center gap-1";
         indNoticeIcon.className = "fa-solid fa-circle-info";
         indNotice.classList.remove('hidden');
       } else if (indCategory === 'DIFFERENT_INDUSTRY') {
-        indEl.className = "text-sm font-extrabold text-rose-600";
-        indNoticeText.textContent = "No action required for this entity";
-        indNotice.className = "text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1";
+        indEl.className = "text-xs font-extrabold text-rose-600 truncate";
+        indNoticeText.textContent = "No action required";
+        indNotice.className = "text-[10px] font-bold text-rose-600 mt-0.5 flex items-center gap-1";
         indNoticeIcon.className = "fa-solid fa-triangle-exclamation";
         indNotice.classList.remove('hidden');
       } else {
-        indEl.className = "text-sm font-bold text-slate-800";
+        indEl.className = "text-xs font-bold text-slate-800 truncate";
         indNotice.classList.add('hidden');
       }
 
       document.getElementById('metaEntityType').textContent = entity.entityType;
       document.getElementById('metaNpi').textContent = entity.npi;
 
-      // Update button visual state based on availability of NPI
       const btnNpidb = document.getElementById('btnFindNpidb');
       const hasValidNpi = entity.npi && entity.npi !== 'N/A' && !isNaN(entity.npi);
       if (hasValidNpi) {
-        btnNpidb.className = "px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-md border border-blue-200 transition flex items-center gap-1.5 shadow-2xs cursor-pointer";
+        btnNpidb.className = "px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-[11px] rounded border border-blue-200 transition flex items-center gap-1 shrink-0 cursor-pointer";
         btnNpidb.title = `Search NPI ${entity.npi} on NPIDB.org`;
       } else {
-        btnNpidb.className = "px-2.5 py-1 bg-slate-100 text-slate-400 font-semibold text-xs rounded-md border border-slate-200 transition flex items-center gap-1.5 cursor-not-allowed";
+        btnNpidb.className = "px-2 py-0.5 bg-slate-100 text-slate-400 font-semibold text-[11px] rounded border border-slate-200 transition flex items-center gap-1 shrink-0 cursor-not-allowed";
         btnNpidb.title = "No valid NPI number available";
       }
 
@@ -935,7 +961,6 @@
       if (entity.errors.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="py-4 px-4 text-center text-slate-400">No source errors recorded.</td></tr>`;
       } else {
-        // Map errors with action status
         const preparedErrors = entity.errors.map(err => {
           const actionInfo = determineActionRequired(err.source, err.value, entity.industry, entity.clientId, entity.syncType, entity.entityType, entity.client);
           if (actionInfo.text === 'Action Required') {
@@ -944,25 +969,23 @@
           return { ...err, actionInfo };
         });
 
-        // SORTING: Priority sorting to bring "Action Required" rows to top
         preparedErrors.sort((a, b) => {
           if (a.actionInfo.text === 'Action Required' && b.actionInfo.text !== 'Action Required') return -1;
           if (a.actionInfo.text !== 'Action Required' && b.actionInfo.text === 'Action Required') return 1;
           return 0;
         });
 
-        // Inject modified rows with dynamic index numbers
         preparedErrors.forEach((err, index) => {
           const formattedValue = formatErrorValueContent(err.value);
 
           const tr = document.createElement('tr');
           tr.className = "hover:bg-slate-50";
           tr.innerHTML = `
-            <td class="py-3.5 px-4 text-center font-bold text-slate-400">${index + 1}</td>
-            <td class="py-3.5 px-4 font-semibold text-slate-800">${err.source}</td>
-            <td class="py-3.5 px-4">${formattedValue}</td>
-            <td class="py-3.5 px-4 text-right">
-              <span class="inline-block px-3 py-1 text-xs rounded-lg border ${err.actionInfo.style}">
+            <td class="py-2 px-2.5 text-center font-bold text-slate-400 align-top">${index + 1}</td>
+            <td class="py-2 px-2.5 font-semibold text-slate-800 align-top">${err.source}</td>
+            <td class="py-2 px-2.5 align-top">${formattedValue}</td>
+            <td class="py-2 px-2.5 text-right align-top">
+              <span class="inline-block px-2 py-0.5 text-[11px] rounded-md border whitespace-nowrap ${err.actionInfo.style}">
                 ${err.actionInfo.text}
               </span>
             </td>
@@ -971,7 +994,6 @@
         });
       }
 
-      // Auto-populate "URLs checked" if not manually set by analyst
       if (entity.metrics.urlsChecked === null || entity.metrics.urlsChecked === undefined) {
         entity.metrics.urlsChecked = actionableCount;
       }
@@ -1105,10 +1127,16 @@
     }
 
     function updateKPIs() {
+      const completedCount = queueData.filter(e => e.status === 'Completed').length;
       document.getElementById('kpiTotalEntities').textContent = queueData.length;
       document.getElementById('kpiNotStarted').textContent = queueData.filter(e => e.status === 'Not Started').length;
       document.getElementById('kpiPending').textContent = queueData.filter(e => e.status === 'Pending').length;
-      document.getElementById('kpiCompleted').textContent = queueData.filter(e => e.status === 'Completed').length;
+      document.getElementById('kpiCompleted').textContent = completedCount;
+
+      const miniBadge = document.getElementById('miniStatsSummary');
+      if (miniBadge) {
+        miniBadge.textContent = `${completedCount}/${queueData.length}`;
+      }
 
       const totalUrlsChecked = calculateTotalUrlsChecked();
       document.getElementById('kpiUrlsVerified').textContent = totalUrlsChecked;
@@ -1125,13 +1153,13 @@
 
       const badge = document.getElementById('paceStatusBadge');
       if (pace >= 140) {
-        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500 text-white";
+        badge.className = "inline-block px-2 py-0.2 text-[9px] font-bold rounded-full bg-emerald-500 text-white";
         badge.textContent = `Ahead (${pace} URLs/hr)`;
       } else if (pace >= 80) {
-        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-amber-500 text-white";
+        badge.className = "inline-block px-2 py-0.2 text-[9px] font-bold rounded-full bg-amber-500 text-white";
         badge.textContent = `On Pace (${pace} URLs/hr)`;
       } else {
-        badge.className = "inline-block px-2 py-0.5 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300";
+        badge.className = "inline-block px-2 py-0.2 text-[9px] font-bold rounded-full bg-slate-700 text-slate-300";
         badge.textContent = `Target: 1,000/day`;
       }
     }
